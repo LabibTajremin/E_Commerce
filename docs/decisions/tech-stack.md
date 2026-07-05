@@ -1,0 +1,27 @@
+# ADR: Tech stack and pinned versions
+
+## Context
+Project init requires pinning exact versions per the platform spec (Section 2) so
+builds are reproducible across dev, CI, and Vercel.
+
+## Decision
+- Backend: Python 3.12, FastAPI 0.115.6, SQLAlchemy 2.0.36 (async) + asyncpg 0.30.0,
+  Alembic 1.14.0, Pydantic 2.10.4 / pydantic-settings 2.7.1, python-jose 3.3.0,
+  passlib[bcrypt] 1.7.4, redis-py 5.2.1, Celery 5.4.0, boto3 1.35.90, stripe-python
+  11.4.1, structlog 24.4.0. Dev/test: pytest 8.3.4, pytest-asyncio 0.25.0,
+  testcontainers 4.9.0, polyfactory 2.18.1, ruff 0.8.4, mypy 1.14.0.
+- Frontend (admin-dashboard, storefront): Next.js 15.5.20 (patched; 15.1.3 as specified
+  in the original brief carries CVE-2025-66478 — see Consequences), React 19, TypeScript
+  5.7.2, Zod 3.24.1, Vitest 3.2.6 (2.1.8 as originally scoped had a critical RCE
+  advisory in its Vite dependency chain), Testing Library 16.1.0.
+- Database: PostgreSQL 16 (via `postgres:16-alpine` in docker-compose / testcontainers).
+
+## Consequences
+- Two library versions deviate from the literal versions implied by the spec's
+  examples (Next.js, Vitest) because the originally-implied minor versions have
+  disclosed critical/high-severity CVEs. Patched versions in the same major line
+  were selected to keep the architecture unchanged.
+- `requires-python = ">=3.12"` in `backend/pyproject.toml` enforces the runtime
+  floor; CI pins `actions/setup-python@v5` to `3.12`.
+- Re-run `npm audit` / `pip list --outdated` at the start of each phase and update
+  this ADR if further CVE-driven version bumps are needed.
