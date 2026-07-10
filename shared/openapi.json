@@ -1007,6 +1007,64 @@
         }
       }
     },
+    "/api/v1/storefront/orders/{order_id}/pay": {
+      "post": {
+        "tags": [
+          "storefront:orders"
+        ],
+        "summary": "Pay Order",
+        "operationId": "pay_order_api_v1_storefront_orders__order_id__pay_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "order_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Order Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayOrderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutUrlResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/register": {
       "post": {
         "tags": [
@@ -2358,6 +2416,163 @@
           }
         }
       }
+    },
+    "/api/v1/admin/billing/plans": {
+      "get": {
+        "tags": [
+          "admin:billing"
+        ],
+        "summary": "List Plans",
+        "operationId": "list_plans_api_v1_admin_billing_plans_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SubscriptionPlanResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Plans Api V1 Admin Billing Plans Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/billing/subscription": {
+      "get": {
+        "tags": [
+          "admin:billing"
+        ],
+        "summary": "Get Subscription",
+        "operationId": "get_subscription_api_v1_admin_billing_subscription_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/TenantSubscriptionResponse"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Subscription Api V1 Admin Billing Subscription Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/billing/subscribe": {
+      "post": {
+        "tags": [
+          "admin:billing"
+        ],
+        "summary": "Subscribe",
+        "operationId": "subscribe_api_v1_admin_billing_subscribe_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscribeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutUrlResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/webhooks/stripe": {
+      "post": {
+        "tags": [
+          "webhooks:stripe"
+        ],
+        "summary": "Stripe Webhook",
+        "operationId": "stripe_webhook_api_v1_webhooks_stripe_post",
+        "parameters": [
+          {
+            "name": "stripe-signature",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stripe-Signature"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2602,6 +2817,19 @@
         ],
         "title": "CheckoutRequest"
       },
+      "CheckoutUrlResponse": {
+        "properties": {
+          "checkout_url": {
+            "type": "string",
+            "title": "Checkout Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "checkout_url"
+        ],
+        "title": "CheckoutUrlResponse"
+      },
       "CurrentAdminResponse": {
         "properties": {
           "user_id": {
@@ -2827,6 +3055,26 @@
           "refunded"
         ],
         "title": "OrderStatus"
+      },
+      "PayOrderRequest": {
+        "properties": {
+          "success_url": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Success Url"
+          },
+          "cancel_url": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Cancel Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success_url",
+          "cancel_url"
+        ],
+        "title": "PayOrderRequest"
       },
       "ProductCreateRequest": {
         "properties": {
@@ -3680,6 +3928,69 @@
         ],
         "title": "StoreSettingsResponse"
       },
+      "SubscribeRequest": {
+        "properties": {
+          "plan_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Plan Id"
+          },
+          "success_url": {
+            "type": "string",
+            "title": "Success Url"
+          },
+          "cancel_url": {
+            "type": "string",
+            "title": "Cancel Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plan_id",
+          "success_url",
+          "cancel_url"
+        ],
+        "title": "SubscribeRequest"
+      },
+      "SubscriptionPlanResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "price": {
+            "type": "string",
+            "title": "Price"
+          },
+          "max_products": {
+            "type": "integer",
+            "title": "Max Products"
+          },
+          "max_banners": {
+            "type": "integer",
+            "title": "Max Banners"
+          },
+          "custom_domain_allowed": {
+            "type": "boolean",
+            "title": "Custom Domain Allowed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "price",
+          "max_products",
+          "max_banners",
+          "custom_domain_allowed"
+        ],
+        "title": "SubscriptionPlanResponse"
+      },
       "TenantCreateRequest": {
         "properties": {
           "name": {
@@ -3768,6 +4079,37 @@
           "suspended"
         ],
         "title": "TenantStatus"
+      },
+      "TenantSubscriptionResponse": {
+        "properties": {
+          "plan_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Plan Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "current_period_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Period End"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plan_id",
+          "status",
+          "current_period_end"
+        ],
+        "title": "TenantSubscriptionResponse"
       },
       "ThemeLayoutType": {
         "type": "string",

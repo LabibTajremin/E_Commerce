@@ -15,6 +15,7 @@ from src.domain.exceptions import (
     ValidationError,
 )
 from src.presentation.api.v1.admin.auth import router as admin_auth_router
+from src.presentation.api.v1.admin.billing import router as admin_billing_router
 from src.presentation.api.v1.admin.branding import router as admin_branding_router
 from src.presentation.api.v1.admin.categories import router as admin_categories_router
 from src.presentation.api.v1.admin.me import router as admin_me_router
@@ -30,6 +31,7 @@ from src.presentation.api.v1.storefront.customers import router as storefront_cu
 from src.presentation.api.v1.storefront.orders import router as storefront_orders_router
 from src.presentation.api.v1.storefront.products import router as storefront_products_router
 from src.presentation.api.v1.storefront.store import router as storefront_store_router
+from src.presentation.api.v1.webhooks.stripe import router as webhooks_stripe_router
 from src.presentation.middleware.tenant_resolver import TenantResolverMiddleware
 
 configure_logging(debug=settings.debug)
@@ -104,3 +106,5 @@ app.include_router(admin_branding_router, prefix="/api/v1/admin")
 app.include_router(admin_categories_router, prefix="/api/v1/admin")
 app.include_router(admin_products_router, prefix="/api/v1/admin")
 app.include_router(admin_orders_router, prefix="/api/v1/admin")
+app.include_router(admin_billing_router, prefix="/api/v1/admin")
+app.include_router(webhooks_stripe_router, prefix="/api/v1")

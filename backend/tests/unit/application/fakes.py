@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from src.application.interfaces.payment_gateway import WebhookEvent
 from src.domain.entities.admin_user import AdminUser
 from src.domain.entities.cart import Cart
 from src.domain.entities.category import Category
@@ -8,6 +9,7 @@ from src.domain.entities.order import Order
 from src.domain.entities.product import Product
 from src.domain.entities.store_settings import StoreSettings
 from src.domain.entities.tenant import Tenant
+from src.domain.entities.tenant_subscription import TenantSubscription
 from src.domain.entities.theme import Theme
 from src.domain.repositories.order_repository import OrderFilters
 from src.domain.repositories.product_repository import ProductFilters
@@ -385,11 +387,15 @@ class FakeCheckoutUnitOfWork:
         customers: FakeCustomerRepository,
         carts: FakeCartRepository,
         orders: FakeOrderRepository,
+        tenant_subscriptions: "FakeTenantSubscriptionRepository | None" = None,
+        webhook_events: "FakeWebhookEventStore | None" = None,
     ) -> None:
         self.products = products
         self.customers = customers
         self.carts = carts
         self.orders = orders
+        self.tenant_subscriptions = tenant_subscriptions or FakeTenantSubscriptionRepository()
+        self.webhook_events = webhook_events or FakeWebhookEventStore()
         self.committed = False
 
     async def __aenter__(self) -> "FakeCheckoutUnitOfWork":
@@ -406,3 +412,88 @@ class FakeCheckoutUnitOfWork:
 
     async def rollback(self) -> None:
         pass
+
+
+class FakeTenantSubscriptionRepository:
+    def __init__(self) -> None:
+        self._subscriptions: dict[UUID, TenantSubscription] = {}
+
+    async def get_by_tenant(self, tenant_id: UUID) -> TenantSubscription | None:
+        return next(
+            (s for s in self._subscriptions.values() if s.tenant_id == tenant_id), None
+        )
+
+    async def get_by_stripe_subscription_id(
+        self, stripe_subscription_id: str
+    ) -> TenantSubscription | None:
+        return next(
+            (
+                s
+                for s in self._subscriptions.values()
+                if s.stripe_subscription_id == stripe_subscription_id
+            ),
+            None,
+        )
+
+    async def upsert(self, subscription: TenantSubscription) -> TenantSubscription:
+        self._subscriptions[subscription.id] = subscription
+        return subscription
+
+
+class FakeWebhookEventStore:
+    def __init__(self) -> None:
+        self._processed: dict[str, str] = {}
+
+    async def is_processed(self, event_id: str) -> bool:
+        return event_id in self._processed
+
+    async def mark_processed(self, event_id: str, event_type: str) -> None:
+        self._processed[event_id] = event_type
+
+
+class FakePaymentGateway:
+    def __init__(self, webhook_event: WebhookEvent | None = None) -> None:
+        self.webhook_event = webhook_event
+        self.checkout_calls: list[dict[str, object]] = []
+        self.subscription_checkout_calls: list[dict[str, object]] = []
+
+    async def create_order_checkout_session(
+        self,
+        *,
+        tenant_id: str,
+        order_id: str,
+        amount_cents: int,
+        currency: str,
+        success_url: str,
+        cancel_url: str,
+    ) -> str:
+        self.checkout_calls.append(
+            {
+                "tenant_id": tenant_id,
+                "order_id": order_id,
+                "amount_cents": amount_cents,
+                "currency": currency,
+            }
+        )
+        return f"https://checkout.stripe.test/session/{order_id}"
+
+    async def create_subscription_checkout_session(
+        self,
+        *,
+        tenant_id: str,
+        stripe_price_id: str,
+        customer_email: str,
+        success_url: str,
+        cancel_url: str,
+    ) -> str:
+        self.subscription_checkout_calls.append(
+            {"tenant_id": tenant_id, "stripe_price_id": stripe_price_id}
+        )
+        return f"https://checkout.stripe.test/subscription/{tenant_id}"
+
+    def verify_webhook_signature(self, payload: bytes, signature_header: str) -> WebhookEvent:
+        if self.webhook_event is None:
+            raise ValueError("No fake webhook event configured")
+        if signature_header != "valid-signature":
+            raise ValueError("Invalid Stripe webhook signature")
+        return self.webhook_event

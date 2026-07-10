@@ -2,12 +2,14 @@ from types import TracebackType
 from typing import Protocol, Self
 from uuid import UUID
 
+from src.application.interfaces.webhook_event_store import WebhookEventStore
 from src.domain.repositories.admin_user_repository import AdminUserRepository
 from src.domain.repositories.cart_repository import CartRepository
 from src.domain.repositories.customer_repository import CustomerRepository
 from src.domain.repositories.order_repository import OrderRepository
 from src.domain.repositories.product_repository import ProductRepository
 from src.domain.repositories.tenant_repository import TenantRepository
+from src.domain.repositories.tenant_subscription_repository import TenantSubscriptionRepository
 
 
 class UnitOfWork(Protocol):
@@ -17,6 +19,8 @@ class UnitOfWork(Protocol):
     customers: CustomerRepository
     carts: CartRepository
     orders: OrderRepository
+    tenant_subscriptions: TenantSubscriptionRepository
+    webhook_events: WebhookEventStore
 
     async def __aenter__(self) -> Self: ...
 

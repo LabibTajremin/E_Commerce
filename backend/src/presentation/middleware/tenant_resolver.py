@@ -9,11 +9,14 @@ from src.infrastructure.db.repositories.sqlalchemy_tenant_repository import (
 )
 from src.infrastructure.db.session import get_session
 
-# Paths that never carry tenant context: platform/superadmin, health, docs, and
-# the public tenant-owner registration endpoint (no tenant exists yet at that point).
+# Paths that never carry tenant context: platform/superadmin, health, docs, the
+# public tenant-owner registration endpoint (no tenant exists yet at that point),
+# and Stripe webhooks (Stripe posts to one global URL, not a per-tenant subdomain
+# — the tenant is resolved from event metadata inside the handler instead).
 _EXEMPT_PREFIXES = (
     "/api/v1/platform",
     "/api/v1/auth",
+    "/api/v1/webhooks",
     "/health",
     "/docs",
     "/openapi.json",

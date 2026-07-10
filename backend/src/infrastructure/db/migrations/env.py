@@ -16,8 +16,11 @@ from src.infrastructure.db.models.customer import CustomerModel  # noqa: F401
 from src.infrastructure.db.models.order import OrderLineItemModel, OrderModel  # noqa: F401
 from src.infrastructure.db.models.product import ProductModel  # noqa: F401
 from src.infrastructure.db.models.store_settings import StoreSettingsModel  # noqa: F401
+from src.infrastructure.db.models.subscription_plan import SubscriptionPlanModel  # noqa: F401
 from src.infrastructure.db.models.tenant import TenantModel  # noqa: F401
+from src.infrastructure.db.models.tenant_subscription import TenantSubscriptionModel  # noqa: F401
 from src.infrastructure.db.models.theme import ThemeModel  # noqa: F401
+from src.infrastructure.db.models.webhook_event import ProcessedWebhookEventModel  # noqa: F401
 from src.infrastructure.db.session import Base
 
 config = context.config

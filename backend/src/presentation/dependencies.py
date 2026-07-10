@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.dto.auth import AuthenticatedAdmin, AuthenticatedCustomer
 from src.application.interfaces.cache import Cache
+from src.application.interfaces.payment_gateway import PaymentGateway
 from src.application.interfaces.storage import ObjectStorage
 from src.application.interfaces.token_blacklist import TokenBlacklist
 from src.application.interfaces.unit_of_work import UnitOfWork
@@ -25,7 +26,9 @@ from src.domain.repositories.customer_repository import CustomerRepository
 from src.domain.repositories.order_repository import OrderRepository
 from src.domain.repositories.product_repository import ProductRepository
 from src.domain.repositories.store_settings_repository import StoreSettingsRepository
+from src.domain.repositories.subscription_plan_repository import SubscriptionPlanRepository
 from src.domain.repositories.tenant_repository import TenantRepository
+from src.domain.repositories.tenant_subscription_repository import TenantSubscriptionRepository
 from src.domain.repositories.theme_repository import ThemeRepository
 from src.infrastructure.cache.redis_cache import RedisCache
 from src.infrastructure.cache.redis_client import get_redis
@@ -49,14 +52,21 @@ from src.infrastructure.db.repositories.sqlalchemy_product_repository import (
 from src.infrastructure.db.repositories.sqlalchemy_store_settings_repository import (
     SqlAlchemyStoreSettingsRepository,
 )
+from src.infrastructure.db.repositories.sqlalchemy_subscription_plan_repository import (
+    SqlAlchemySubscriptionPlanRepository,
+)
 from src.infrastructure.db.repositories.sqlalchemy_tenant_repository import (
     SqlAlchemyTenantRepository,
+)
+from src.infrastructure.db.repositories.sqlalchemy_tenant_subscription_repository import (
+    SqlAlchemyTenantSubscriptionRepository,
 )
 from src.infrastructure.db.repositories.sqlalchemy_theme_repository import (
     SqlAlchemyThemeRepository,
 )
 from src.infrastructure.db.session import async_session_factory
 from src.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
+from src.infrastructure.payments.stripe_gateway import StripePaymentGateway
 from src.infrastructure.storage.s3_storage import S3ObjectStorage
 
 _bearer_scheme = HTTPBearer(auto_error=False)
@@ -307,3 +317,28 @@ async def get_cart_identity(
 
 
 CartIdentityDep = Annotated[CartIdentity, Depends(get_cart_identity)]
+
+
+def get_subscription_plan_repository(session: DbSession) -> SubscriptionPlanRepository:
+    return SqlAlchemySubscriptionPlanRepository(session)
+
+
+SubscriptionPlanRepositoryDep = Annotated[
+    SubscriptionPlanRepository, Depends(get_subscription_plan_repository)
+]
+
+
+def get_tenant_subscription_repository(session: DbSession) -> TenantSubscriptionRepository:
+    return SqlAlchemyTenantSubscriptionRepository(session)
+
+
+TenantSubscriptionRepositoryDep = Annotated[
+    TenantSubscriptionRepository, Depends(get_tenant_subscription_repository)
+]
+
+
+def get_payment_gateway() -> PaymentGateway:
+    return StripePaymentGateway()
+
+
+PaymentGatewayDep = Annotated[PaymentGateway, Depends(get_payment_gateway)]
