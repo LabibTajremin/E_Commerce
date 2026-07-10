@@ -15,7 +15,9 @@ from src.domain.exceptions import (
 )
 from src.presentation.api.v1.admin.auth import router as admin_auth_router
 from src.presentation.api.v1.admin.branding import router as admin_branding_router
+from src.presentation.api.v1.admin.categories import router as admin_categories_router
 from src.presentation.api.v1.admin.me import router as admin_me_router
+from src.presentation.api.v1.admin.products import router as admin_products_router
 from src.presentation.api.v1.auth.register import router as auth_register_router
 from src.presentation.api.v1.platform.tenants import router as platform_tenants_router
 from src.presentation.api.v1.storefront.context import router as storefront_context_router
@@ -82,3 +84,5 @@ app.include_router(auth_register_router, prefix="/api/v1/auth")
 app.include_router(admin_auth_router, prefix="/api/v1/admin")
 app.include_router(admin_me_router, prefix="/api/v1/admin")
 app.include_router(admin_branding_router, prefix="/api/v1/admin")
+app.include_router(admin_categories_router, prefix="/api/v1/admin")
+app.include_router(admin_products_router, prefix="/api/v1/admin")

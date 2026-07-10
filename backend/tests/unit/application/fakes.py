@@ -1,9 +1,12 @@
 from uuid import UUID
 
 from src.domain.entities.admin_user import AdminUser
+from src.domain.entities.category import Category
+from src.domain.entities.product import Product
 from src.domain.entities.store_settings import StoreSettings
 from src.domain.entities.tenant import Tenant
 from src.domain.entities.theme import Theme
+from src.domain.repositories.product_repository import ProductFilters
 from src.domain.repositories.tenant_repository import TenantFilters
 
 
@@ -134,3 +137,119 @@ class FakeObjectStorage:
     async def upload(self, *, key: str, content: bytes, content_type: str) -> str:
         self.uploaded.append((key, content, content_type))
         return f"https://cdn.test/{key}"
+
+
+class FakeCategoryRepository:
+    def __init__(self) -> None:
+        self._categories: dict[UUID, Category] = {}
+
+    async def get_by_id(self, tenant_id: UUID, category_id: UUID) -> Category | None:
+        cat = self._categories.get(category_id)
+        return cat if cat and cat.tenant_id == tenant_id else None
+
+    async def get_by_slug(self, tenant_id: UUID, slug: str) -> Category | None:
+        return next(
+            (
+                c
+                for c in self._categories.values()
+                if c.tenant_id == tenant_id and str(c.slug) == slug
+            ),
+            None,
+        )
+
+    async def list(self, tenant_id: UUID) -> list[Category]:
+        return [c for c in self._categories.values() if c.tenant_id == tenant_id]
+
+    async def add(self, category: Category) -> Category:
+        self._categories[category.id] = category
+        return category
+
+    async def update(self, category: Category) -> Category:
+        self._categories[category.id] = category
+        return category
+
+    async def delete(self, tenant_id: UUID, category_id: UUID) -> None:
+        cat = self._categories.get(category_id)
+        if cat and cat.tenant_id == tenant_id:
+            del self._categories[category_id]
+
+
+class FakeProductRepository:
+    def __init__(self) -> None:
+        self._products: dict[UUID, Product] = {}
+
+    async def get_by_id(self, tenant_id: UUID, product_id: UUID) -> Product | None:
+        p = self._products.get(product_id)
+        return p if p and p.tenant_id == tenant_id else None
+
+    async def get_by_slug(self, tenant_id: UUID, slug: str) -> Product | None:
+        return next(
+            (
+                p
+                for p in self._products.values()
+                if p.tenant_id == tenant_id and str(p.slug) == slug
+            ),
+            None,
+        )
+
+    async def get_by_sku(self, tenant_id: UUID, sku: str) -> Product | None:
+        return next(
+            (
+                p
+                for p in self._products.values()
+                if p.tenant_id == tenant_id and p.sku and str(p.sku) == sku
+            ),
+            None,
+        )
+
+    def _filtered(self, tenant_id: UUID, filters: ProductFilters) -> list[Product]:
+        items = [p for p in self._products.values() if p.tenant_id == tenant_id]
+        if filters.category_id is not None:
+            items = [p for p in items if p.category_id == filters.category_id]
+        if filters.status is not None:
+            items = [p for p in items if p.status == filters.status]
+        if filters.min_price is not None:
+            items = [p for p in items if p.price.amount >= filters.min_price]
+        if filters.max_price is not None:
+            items = [p for p in items if p.price.amount <= filters.max_price]
+        if filters.search:
+            needle = filters.search.lower()
+            items = [
+                p
+                for p in items
+                if needle in p.name.lower() or (p.description and needle in p.description.lower())
+            ]
+        return items
+
+    async def count(self, tenant_id: UUID, filters: ProductFilters) -> int:
+        return len(self._filtered(tenant_id, filters))
+
+    async def add(self, product: Product) -> Product:
+        self._products[product.id] = product
+        return product
+
+    async def update(self, product: Product) -> Product:
+        self._products[product.id] = product
+        return product
+
+    async def delete(self, tenant_id: UUID, product_id: UUID) -> None:
+        p = self._products.get(product_id)
+        if p and p.tenant_id == tenant_id:
+            del self._products[product_id]
+
+    async def bulk_update_status(
+        self, tenant_id: UUID, product_ids: list[UUID], status: object
+    ) -> int:
+        count = 0
+        for pid in product_ids:
+            p = self._products.get(pid)
+            if p and p.tenant_id == tenant_id:
+                p.status = status  # type: ignore[assignment]
+                count += 1
+        return count
+
+    # Defined last: naming this `list` shadows the builtin for any annotation
+    # appearing later in this class body (evaluated in the class namespace).
+    async def list(self, tenant_id: UUID, filters: ProductFilters) -> list[Product]:
+        items = self._filtered(tenant_id, filters)
+        return items[filters.offset : filters.offset + filters.limit]

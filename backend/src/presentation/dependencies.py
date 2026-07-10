@@ -17,6 +17,8 @@ from src.core.security import decode_token
 from src.domain.entities.admin_user import AdminRole
 from src.domain.exceptions import AuthenticationError, PermissionDeniedError
 from src.domain.repositories.admin_user_repository import AdminUserRepository
+from src.domain.repositories.category_repository import CategoryRepository
+from src.domain.repositories.product_repository import ProductRepository
 from src.domain.repositories.store_settings_repository import StoreSettingsRepository
 from src.domain.repositories.tenant_repository import TenantRepository
 from src.domain.repositories.theme_repository import ThemeRepository
@@ -24,6 +26,12 @@ from src.infrastructure.cache.redis_client import get_redis
 from src.infrastructure.cache.redis_token_blacklist import RedisTokenBlacklist
 from src.infrastructure.db.repositories.sqlalchemy_admin_user_repository import (
     SqlAlchemyAdminUserRepository,
+)
+from src.infrastructure.db.repositories.sqlalchemy_category_repository import (
+    SqlAlchemyCategoryRepository,
+)
+from src.infrastructure.db.repositories.sqlalchemy_product_repository import (
+    SqlAlchemyProductRepository,
 )
 from src.infrastructure.db.repositories.sqlalchemy_store_settings_repository import (
     SqlAlchemyStoreSettingsRepository,
@@ -175,6 +183,20 @@ def get_get_store_settings_use_case(
 GetStoreSettingsUseCaseDep = Annotated[
     GetStoreSettingsUseCase, Depends(get_get_store_settings_use_case)
 ]
+
+
+def get_category_repository(session: DbSession) -> CategoryRepository:
+    return SqlAlchemyCategoryRepository(session)
+
+
+CategoryRepositoryDep = Annotated[CategoryRepository, Depends(get_category_repository)]
+
+
+def get_product_repository(session: DbSession) -> ProductRepository:
+    return SqlAlchemyProductRepository(session)
+
+
+ProductRepositoryDep = Annotated[ProductRepository, Depends(get_product_repository)]
 
 
 async def require_platform_admin(
