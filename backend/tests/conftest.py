@@ -5,6 +5,7 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from testcontainers.postgres import PostgresContainer
+from testcontainers.redis import RedisContainer
 
 os.environ.setdefault("JWT_SECRET", "test-secret")
 os.environ.setdefault("STRIPE_SECRET_KEY", "sk_test_fake")
@@ -14,6 +15,7 @@ os.environ.setdefault("S3_ACCESS_KEY", "test")
 os.environ.setdefault("S3_SECRET_KEY", "test")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/test")
+os.environ.setdefault("PLATFORM_ADMIN_API_KEY", "test-platform-admin-key")
 
 
 @pytest.fixture(scope="session")
@@ -26,6 +28,19 @@ def postgres_container():
 def database_url(postgres_container: PostgresContainer) -> str:
     url = postgres_container.get_connection_url()
     return url.replace("postgresql+psycopg2", "postgresql+asyncpg")
+
+
+@pytest.fixture(scope="session")
+def redis_container():
+    with RedisContainer("redis:7-alpine") as container:
+        yield container
+
+
+@pytest.fixture(scope="session")
+def redis_url(redis_container: RedisContainer) -> str:
+    host = redis_container.get_container_host_ip()
+    port = redis_container.get_exposed_port(6379)
+    return f"redis://{host}:{port}/0"
 
 
 @pytest.fixture(scope="session")

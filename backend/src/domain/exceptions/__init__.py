@@ -20,8 +20,13 @@ class ValidationError(DomainError):
     pass
 
 
+class AuthenticationError(DomainError):
+    """Caller isn't (or is no longer) authenticated: bad credentials, missing,
+    expired, or revoked token."""
+
+
 class PermissionDeniedError(DomainError):
-    pass
+    """Caller is authenticated but not allowed to perform this action."""
 
 
 class PlanLimitExceededError(DomainError):

@@ -1,0 +1,192 @@
+from uuid import uuid4
+
+import pytest
+
+from src.application.use_cases.auth.login import LoginInput, LoginUseCase
+from src.application.use_cases.auth.logout import LogoutInput, LogoutUseCase
+from src.application.use_cases.auth.refresh_token import RefreshTokenInput, RefreshTokenUseCase
+from src.application.use_cases.auth.register_tenant_owner import (
+    RegisterTenantOwnerInput,
+    RegisterTenantOwnerUseCase,
+)
+from src.core.security import create_token, hash_password
+from src.domain.entities.admin_user import AdminUser
+from src.domain.exceptions import AuthenticationError, EntityAlreadyExistsError
+from src.domain.value_objects.email import Email
+from tests.unit.application.fakes import (
+    FakeAdminUserRepository,
+    FakeTenantRepository,
+    FakeTokenBlacklist,
+    FakeUnitOfWork,
+)
+
+
+async def test_register_tenant_owner_creates_tenant_and_owner() -> None:
+    uow = FakeUnitOfWork(FakeTenantRepository(), FakeAdminUserRepository())
+    use_case = RegisterTenantOwnerUseCase(uow)
+
+    result = await use_case.execute(
+        RegisterTenantOwnerInput(
+            tenant_name="Acme",
+            subdomain="acme",
+            owner_email="owner@acme.com",
+            owner_password="hunter22",
+        )
+    )
+
+    assert result.tenant.name == "Acme"
+    assert result.owner.tenant_id == result.tenant.id
+    assert uow.committed is True
+
+
+async def test_register_tenant_owner_rejects_duplicate_subdomain() -> None:
+    tenants = FakeTenantRepository()
+    uow = FakeUnitOfWork(tenants, FakeAdminUserRepository())
+    use_case = RegisterTenantOwnerUseCase(uow)
+    await use_case.execute(
+        RegisterTenantOwnerInput(
+            tenant_name="Acme",
+            subdomain="acme",
+            owner_email="a@acme.com",
+            owner_password="hunter22",
+        )
+    )
+
+    with pytest.raises(EntityAlreadyExistsError):
+        await use_case.execute(
+            RegisterTenantOwnerInput(
+                tenant_name="Acme 2",
+                subdomain="acme",
+                owner_email="b@acme.com",
+                owner_password="hunter22",
+            )
+        )
+
+
+async def test_login_succeeds_with_correct_credentials() -> None:
+    admin_users = FakeAdminUserRepository()
+    tenant_id = uuid4()
+    user = AdminUser(
+        tenant_id=tenant_id,
+        email=Email("owner@acme.com"),
+        hashed_password=hash_password("hunter22"),
+    )
+    await admin_users.add(user)
+
+    tokens = await LoginUseCase(admin_users).execute(
+        LoginInput(tenant_id=tenant_id, email="owner@acme.com", password="hunter22")
+    )
+
+    assert tokens.access_token
+    assert tokens.refresh_token
+
+
+async def test_login_rejects_wrong_password() -> None:
+    admin_users = FakeAdminUserRepository()
+    tenant_id = uuid4()
+    user = AdminUser(
+        tenant_id=tenant_id,
+        email=Email("owner@acme.com"),
+        hashed_password=hash_password("hunter22"),
+    )
+    await admin_users.add(user)
+
+    with pytest.raises(AuthenticationError):
+        await LoginUseCase(admin_users).execute(
+            LoginInput(tenant_id=tenant_id, email="owner@acme.com", password="wrong")
+        )
+
+
+async def test_login_rejects_unknown_email() -> None:
+    with pytest.raises(AuthenticationError):
+        await LoginUseCase(FakeAdminUserRepository()).execute(
+            LoginInput(tenant_id=uuid4(), email="ghost@acme.com", password="whatever")
+        )
+
+
+async def test_login_from_wrong_tenant_fails_even_with_correct_password() -> None:
+    """The core cross-tenant isolation guarantee: an owner registered under tenant A
+    cannot log in when the request resolves to tenant B, even with correct credentials."""
+    admin_users = FakeAdminUserRepository()
+    tenant_a = uuid4()
+    tenant_b = uuid4()
+    user = AdminUser(
+        tenant_id=tenant_a,
+        email=Email("owner@acme.com"),
+        hashed_password=hash_password("hunter22"),
+    )
+    await admin_users.add(user)
+
+    with pytest.raises(AuthenticationError):
+        await LoginUseCase(admin_users).execute(
+            LoginInput(tenant_id=tenant_b, email="owner@acme.com", password="hunter22")
+        )
+
+
+async def test_refresh_issues_new_token_pair_and_revokes_old_one() -> None:
+    admin_users = FakeAdminUserRepository()
+    blacklist = FakeTokenBlacklist()
+    tenant_id = uuid4()
+    user = AdminUser(tenant_id=tenant_id, email=Email("owner@acme.com"), hashed_password="hash")
+    await admin_users.add(user)
+    refresh_token, jti = create_token(
+        subject=user.id, tenant_id=tenant_id, token_type="refresh", role="owner"
+    )
+
+    use_case = RefreshTokenUseCase(admin_users, blacklist)
+    new_tokens = await use_case.execute(RefreshTokenInput(refresh_token=refresh_token))
+
+    assert new_tokens.access_token
+    assert await blacklist.is_revoked(jti) is True
+
+
+async def test_refresh_rejects_already_revoked_token() -> None:
+    admin_users = FakeAdminUserRepository()
+    blacklist = FakeTokenBlacklist()
+    tenant_id = uuid4()
+    user = AdminUser(tenant_id=tenant_id, email=Email("owner@acme.com"), hashed_password="hash")
+    await admin_users.add(user)
+    refresh_token, jti = create_token(
+        subject=user.id, tenant_id=tenant_id, token_type="refresh", role="owner"
+    )
+    await blacklist.revoke(jti, 3600)
+
+    with pytest.raises(AuthenticationError):
+        await RefreshTokenUseCase(admin_users, blacklist).execute(
+            RefreshTokenInput(refresh_token=refresh_token)
+        )
+
+
+async def test_refresh_rejects_access_token() -> None:
+    admin_users = FakeAdminUserRepository()
+    blacklist = FakeTokenBlacklist()
+    tenant_id = uuid4()
+    user = AdminUser(tenant_id=tenant_id, email=Email("owner@acme.com"), hashed_password="hash")
+    await admin_users.add(user)
+    access_token, _ = create_token(
+        subject=user.id, tenant_id=tenant_id, token_type="access", role="owner"
+    )
+
+    with pytest.raises(AuthenticationError):
+        await RefreshTokenUseCase(admin_users, blacklist).execute(
+            RefreshTokenInput(refresh_token=access_token)
+        )
+
+
+async def test_logout_revokes_both_tokens() -> None:
+    blacklist = FakeTokenBlacklist()
+    tenant_id = uuid4()
+    user_id = uuid4()
+    access_token, access_jti = create_token(
+        subject=user_id, tenant_id=tenant_id, token_type="access", role="owner"
+    )
+    refresh_token, refresh_jti = create_token(
+        subject=user_id, tenant_id=tenant_id, token_type="refresh", role="owner"
+    )
+
+    await LogoutUseCase(blacklist).execute(
+        LogoutInput(access_token=access_token, refresh_token=refresh_token)
+    )
+
+    assert await blacklist.is_revoked(access_jti) is True
+    assert await blacklist.is_revoked(refresh_jti) is True

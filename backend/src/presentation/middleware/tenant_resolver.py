@@ -9,8 +9,16 @@ from src.infrastructure.db.repositories.sqlalchemy_tenant_repository import (
 )
 from src.infrastructure.db.session import get_session
 
-# Paths that never carry tenant context (platform/superadmin, health, docs).
-_EXEMPT_PREFIXES = ("/api/v1/platform", "/health", "/docs", "/openapi.json", "/redoc")
+# Paths that never carry tenant context: platform/superadmin, health, docs, and
+# the public tenant-owner registration endpoint (no tenant exists yet at that point).
+_EXEMPT_PREFIXES = (
+    "/api/v1/platform",
+    "/api/v1/auth",
+    "/health",
+    "/docs",
+    "/openapi.json",
+    "/redoc",
+)
 
 
 def extract_subdomain(host: str, base_domain: str) -> str | None:

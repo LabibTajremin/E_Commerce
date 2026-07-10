@@ -17,6 +17,7 @@ jobs:
       S3_SECRET_KEY: test
       REDIS_URL: redis://localhost:6379/0
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/test
+      PLATFORM_ADMIN_API_KEY: test-platform-admin-key
     defaults:
       run:
         working-directory: backend

@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from src.core.config import settings
 from src.core.logging import configure_logging, get_logger
 from src.domain.exceptions import (
+    AuthenticationError,
     DomainError,
     EntityAlreadyExistsError,
     EntityNotFoundError,
@@ -12,6 +13,9 @@ from src.domain.exceptions import (
     PlanLimitExceededError,
     ValidationError,
 )
+from src.presentation.api.v1.admin.auth import router as admin_auth_router
+from src.presentation.api.v1.admin.me import router as admin_me_router
+from src.presentation.api.v1.auth.register import router as auth_register_router
 from src.presentation.api.v1.platform.tenants import router as platform_tenants_router
 from src.presentation.api.v1.storefront.context import router as storefront_context_router
 from src.presentation.middleware.tenant_resolver import TenantResolverMiddleware
@@ -34,6 +38,7 @@ _ERROR_STATUS_MAP: dict[type[DomainError], int] = {
     EntityNotFoundError: status.HTTP_404_NOT_FOUND,
     EntityAlreadyExistsError: status.HTTP_409_CONFLICT,
     ValidationError: status.HTTP_422_UNPROCESSABLE_ENTITY,
+    AuthenticationError: status.HTTP_401_UNAUTHORIZED,
     PermissionDeniedError: status.HTTP_403_FORBIDDEN,
     PlanLimitExceededError: status.HTTP_402_PAYMENT_REQUIRED,
 }
@@ -62,3 +67,6 @@ async def health_check() -> dict[str, str]:
 
 app.include_router(platform_tenants_router, prefix="/api/v1/platform")
 app.include_router(storefront_context_router, prefix="/api/v1/storefront")
+app.include_router(auth_register_router, prefix="/api/v1/auth")
+app.include_router(admin_auth_router, prefix="/api/v1/admin")
+app.include_router(admin_me_router, prefix="/api/v1/admin")

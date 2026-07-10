@@ -16,6 +16,11 @@ builds are reproducible across dev, CI, and Vercel.
   advisory in its Vite dependency chain), Testing Library 16.1.0.
 - Database: PostgreSQL 16 (via `postgres:16-alpine` in docker-compose / testcontainers).
 
+- `bcrypt` is pinned to `4.0.1` explicitly. `passlib[bcrypt]==1.7.4` is unmaintained
+  and probes `bcrypt.__about__` at import time, an attribute `bcrypt>=4.1` removed;
+  without the pin, every `hash_password`/`verify_password` call raises. `4.0.1` is
+  the newest release that still exposes it.
+
 ## Consequences
 - Two library versions deviate from the literal versions implied by the spec's
   examples (Next.js, Vitest) because the originally-implied minor versions have

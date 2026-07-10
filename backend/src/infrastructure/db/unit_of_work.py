@@ -1,25 +1,57 @@
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from types import TracebackType
+from typing import Self
 from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.domain.repositories.admin_user_repository import AdminUserRepository
+from src.domain.repositories.tenant_repository import TenantRepository
+from src.infrastructure.db.repositories.sqlalchemy_admin_user_repository import (
+    SqlAlchemyAdminUserRepository,
+)
+from src.infrastructure.db.repositories.sqlalchemy_tenant_repository import (
+    SqlAlchemyTenantRepository,
+)
 from src.infrastructure.db.session import async_session_factory
 
 
-class UnitOfWork:
-    """Pins the Postgres RLS tenant setting for the lifetime of one transaction."""
+class SqlAlchemyUnitOfWork:
+    def __init__(self, tenant_id: UUID | None = None) -> None:
+        self._tenant_id = tenant_id
+        self.session: AsyncSession | None = None
 
-    def __init__(self, session: AsyncSession) -> None:
-        self.session = session
+    async def __aenter__(self) -> Self:
+        self.session = async_session_factory()
+        await self.session.begin()
+        if self._tenant_id is not None:
+            # SET has no bind-parameter support over the wire protocol; tenant_id is a
+            # UUID instance (not raw client input), so inlining str() is injection-safe.
+            await self.session.execute(text(f"SET LOCAL app.tenant_id = '{self._tenant_id}'"))
+        self.tenants: TenantRepository = SqlAlchemyTenantRepository(self.session)
+        self.admin_users: AdminUserRepository = SqlAlchemyAdminUserRepository(self.session)
+        return self
 
-    @staticmethod
-    @asynccontextmanager
-    async def begin(tenant_id: UUID | None = None) -> AsyncIterator["UnitOfWork"]:
-        async with async_session_factory() as session, session.begin():
-            if tenant_id is not None:
-                # SET has no bind-parameter support over the wire protocol; tenant_id is a
-                # UUID instance (not raw client input), so inlining str() is injection-safe.
-                await session.execute(text(f"SET LOCAL app.tenant_id = '{tenant_id}'"))
-            yield UnitOfWork(session)
+    async def set_tenant_context(self, tenant_id: UUID) -> None:
+        assert self.session is not None
+        self._tenant_id = tenant_id
+        await self.session.execute(text(f"SET LOCAL app.tenant_id = '{tenant_id}'"))
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        assert self.session is not None
+        if exc_type is not None:
+            await self.session.rollback()
+        await self.session.close()
+
+    async def commit(self) -> None:
+        assert self.session is not None
+        await self.session.commit()
+
+    async def rollback(self) -> None:
+        assert self.session is not None
+        await self.session.rollback()

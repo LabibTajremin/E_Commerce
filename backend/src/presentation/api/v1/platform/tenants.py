@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Depends, Query, status
 
 from src.application.use_cases.tenants.create_tenant import (
     CreateTenantInput,
@@ -13,10 +13,12 @@ from src.application.use_cases.tenants.suspend_tenant import (
 )
 from src.domain.entities.tenant import TenantStatus
 from src.domain.repositories.tenant_repository import TenantFilters
-from src.presentation.dependencies import TenantRepositoryDep
+from src.presentation.dependencies import TenantRepositoryDep, require_platform_admin
 from src.presentation.schemas.tenant import TenantCreateRequest, TenantResponse
 
-router = APIRouter(prefix="/tenants", tags=["platform:tenants"])
+router = APIRouter(
+    prefix="/tenants", tags=["platform:tenants"], dependencies=[Depends(require_platform_admin)]
+)
 
 
 @router.post("", response_model=TenantResponse, status_code=status.HTTP_201_CREATED)
