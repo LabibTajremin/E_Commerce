@@ -60,6 +60,15 @@ class SqlAlchemyProductRepository:
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model else None
 
+    async def get_by_id_for_update(self, tenant_id: UUID, product_id: UUID) -> Product | None:
+        result = await self._session.execute(
+            select(ProductModel)
+            .where(ProductModel.id == product_id, ProductModel.tenant_id == tenant_id)
+            .with_for_update()
+        )
+        model = result.scalar_one_or_none()
+        return self._to_entity(model) if model else None
+
     async def get_by_slug(self, tenant_id: UUID, slug: str) -> Product | None:
         result = await self._session.execute(
             select(ProductModel).where(

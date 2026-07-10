@@ -3,12 +3,20 @@ from typing import Protocol, Self
 from uuid import UUID
 
 from src.domain.repositories.admin_user_repository import AdminUserRepository
+from src.domain.repositories.cart_repository import CartRepository
+from src.domain.repositories.customer_repository import CustomerRepository
+from src.domain.repositories.order_repository import OrderRepository
+from src.domain.repositories.product_repository import ProductRepository
 from src.domain.repositories.tenant_repository import TenantRepository
 
 
 class UnitOfWork(Protocol):
     tenants: TenantRepository
     admin_users: AdminUserRepository
+    products: ProductRepository
+    customers: CustomerRepository
+    carts: CartRepository
+    orders: OrderRepository
 
     async def __aenter__(self) -> Self: ...
 

@@ -6,9 +6,23 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.repositories.admin_user_repository import AdminUserRepository
+from src.domain.repositories.cart_repository import CartRepository
+from src.domain.repositories.customer_repository import CustomerRepository
+from src.domain.repositories.order_repository import OrderRepository
+from src.domain.repositories.product_repository import ProductRepository
 from src.domain.repositories.tenant_repository import TenantRepository
 from src.infrastructure.db.repositories.sqlalchemy_admin_user_repository import (
     SqlAlchemyAdminUserRepository,
+)
+from src.infrastructure.db.repositories.sqlalchemy_cart_repository import SqlAlchemyCartRepository
+from src.infrastructure.db.repositories.sqlalchemy_customer_repository import (
+    SqlAlchemyCustomerRepository,
+)
+from src.infrastructure.db.repositories.sqlalchemy_order_repository import (
+    SqlAlchemyOrderRepository,
+)
+from src.infrastructure.db.repositories.sqlalchemy_product_repository import (
+    SqlAlchemyProductRepository,
 )
 from src.infrastructure.db.repositories.sqlalchemy_tenant_repository import (
     SqlAlchemyTenantRepository,
@@ -30,6 +44,10 @@ class SqlAlchemyUnitOfWork:
             await self.session.execute(text(f"SET LOCAL app.tenant_id = '{self._tenant_id}'"))
         self.tenants: TenantRepository = SqlAlchemyTenantRepository(self.session)
         self.admin_users: AdminUserRepository = SqlAlchemyAdminUserRepository(self.session)
+        self.products: ProductRepository = SqlAlchemyProductRepository(self.session)
+        self.customers: CustomerRepository = SqlAlchemyCustomerRepository(self.session)
+        self.carts: CartRepository = SqlAlchemyCartRepository(self.session)
+        self.orders: OrderRepository = SqlAlchemyOrderRepository(self.session)
         return self
 
     async def set_tenant_context(self, tenant_id: UUID) -> None:

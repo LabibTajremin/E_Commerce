@@ -9,6 +9,7 @@ from src.domain.exceptions import (
     DomainError,
     EntityAlreadyExistsError,
     EntityNotFoundError,
+    OutOfStockError,
     PermissionDeniedError,
     PlanLimitExceededError,
     ValidationError,
@@ -17,11 +18,16 @@ from src.presentation.api.v1.admin.auth import router as admin_auth_router
 from src.presentation.api.v1.admin.branding import router as admin_branding_router
 from src.presentation.api.v1.admin.categories import router as admin_categories_router
 from src.presentation.api.v1.admin.me import router as admin_me_router
+from src.presentation.api.v1.admin.orders import router as admin_orders_router
 from src.presentation.api.v1.admin.products import router as admin_products_router
 from src.presentation.api.v1.auth.register import router as auth_register_router
 from src.presentation.api.v1.platform.tenants import router as platform_tenants_router
+from src.presentation.api.v1.storefront.cart import router as storefront_cart_router
 from src.presentation.api.v1.storefront.categories import router as storefront_categories_router
+from src.presentation.api.v1.storefront.checkout import router as storefront_checkout_router
 from src.presentation.api.v1.storefront.context import router as storefront_context_router
+from src.presentation.api.v1.storefront.customers import router as storefront_customers_router
+from src.presentation.api.v1.storefront.orders import router as storefront_orders_router
 from src.presentation.api.v1.storefront.products import router as storefront_products_router
 from src.presentation.api.v1.storefront.store import router as storefront_store_router
 from src.presentation.middleware.tenant_resolver import TenantResolverMiddleware
@@ -47,6 +53,7 @@ _ERROR_STATUS_MAP: dict[type[DomainError], int] = {
     AuthenticationError: status.HTTP_401_UNAUTHORIZED,
     PermissionDeniedError: status.HTTP_403_FORBIDDEN,
     PlanLimitExceededError: status.HTTP_402_PAYMENT_REQUIRED,
+    OutOfStockError: status.HTTP_409_CONFLICT,
 }
 
 
@@ -86,9 +93,14 @@ app.include_router(storefront_context_router, prefix="/api/v1/storefront")
 app.include_router(storefront_products_router, prefix="/api/v1/storefront")
 app.include_router(storefront_categories_router, prefix="/api/v1/storefront")
 app.include_router(storefront_store_router, prefix="/api/v1/storefront")
+app.include_router(storefront_customers_router, prefix="/api/v1/storefront")
+app.include_router(storefront_cart_router, prefix="/api/v1/storefront")
+app.include_router(storefront_checkout_router, prefix="/api/v1/storefront")
+app.include_router(storefront_orders_router, prefix="/api/v1/storefront")
 app.include_router(auth_register_router, prefix="/api/v1/auth")
 app.include_router(admin_auth_router, prefix="/api/v1/admin")
 app.include_router(admin_me_router, prefix="/api/v1/admin")
 app.include_router(admin_branding_router, prefix="/api/v1/admin")
 app.include_router(admin_categories_router, prefix="/api/v1/admin")
 app.include_router(admin_products_router, prefix="/api/v1/admin")
+app.include_router(admin_orders_router, prefix="/api/v1/admin")

@@ -31,3 +31,13 @@ class PermissionDeniedError(DomainError):
 
 class PlanLimitExceededError(DomainError):
     pass
+
+
+class OutOfStockError(DomainError):
+    def __init__(self, product_id: object, requested: int, available: int) -> None:
+        self.product_id = product_id
+        self.requested = requested
+        self.available = available
+        super().__init__(
+            f"Product {product_id} out of stock: requested {requested}, available {available}"
+        )

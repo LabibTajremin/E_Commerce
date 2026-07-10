@@ -14,3 +14,9 @@ class AuthenticatedAdmin:
     user_id: UUID
     tenant_id: UUID
     role: str
+
+
+@dataclass(frozen=True, slots=True)
+class AuthenticatedCustomer:
+    customer_id: UUID
+    tenant_id: UUID

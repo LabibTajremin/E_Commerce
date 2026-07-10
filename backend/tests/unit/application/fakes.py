@@ -1,11 +1,15 @@
 from uuid import UUID
 
 from src.domain.entities.admin_user import AdminUser
+from src.domain.entities.cart import Cart
 from src.domain.entities.category import Category
+from src.domain.entities.customer import Customer
+from src.domain.entities.order import Order
 from src.domain.entities.product import Product
 from src.domain.entities.store_settings import StoreSettings
 from src.domain.entities.tenant import Tenant
 from src.domain.entities.theme import Theme
+from src.domain.repositories.order_repository import OrderFilters
 from src.domain.repositories.product_repository import ProductFilters
 from src.domain.repositories.tenant_repository import TenantFilters
 
@@ -202,6 +206,9 @@ class FakeProductRepository:
             None,
         )
 
+    async def get_by_id_for_update(self, tenant_id: UUID, product_id: UUID) -> Product | None:
+        return await self.get_by_id(tenant_id, product_id)
+
     def _filtered(self, tenant_id: UUID, filters: ProductFilters) -> list[Product]:
         items = [p for p in self._products.values() if p.tenant_id == tenant_id]
         if filters.category_id is not None:
@@ -273,3 +280,129 @@ class FakeCache:
 
     async def bump_version(self, namespace: str) -> None:
         self._versions[namespace] = self._versions.get(namespace, 0) + 1
+
+
+class FakeCustomerRepository:
+    def __init__(self) -> None:
+        self._customers: dict[UUID, Customer] = {}
+
+    async def get_by_id(self, tenant_id: UUID, customer_id: UUID) -> Customer | None:
+        c = self._customers.get(customer_id)
+        return c if c and c.tenant_id == tenant_id else None
+
+    async def get_by_email(self, tenant_id: UUID, email: str) -> Customer | None:
+        return next(
+            (
+                c
+                for c in self._customers.values()
+                if c.tenant_id == tenant_id and str(c.email) == email.strip().lower()
+            ),
+            None,
+        )
+
+    async def add(self, customer: Customer) -> Customer:
+        self._customers[customer.id] = customer
+        return customer
+
+    async def update(self, customer: Customer) -> Customer:
+        self._customers[customer.id] = customer
+        return customer
+
+
+class FakeCartRepository:
+    def __init__(self) -> None:
+        self._carts: dict[UUID, Cart] = {}
+
+    async def get_by_customer(self, tenant_id: UUID, customer_id: UUID) -> Cart | None:
+        return next(
+            (
+                c
+                for c in self._carts.values()
+                if c.tenant_id == tenant_id and c.customer_id == customer_id
+            ),
+            None,
+        )
+
+    async def get_by_session(self, tenant_id: UUID, session_id: str) -> Cart | None:
+        return next(
+            (
+                c
+                for c in self._carts.values()
+                if c.tenant_id == tenant_id and c.session_id == session_id
+            ),
+            None,
+        )
+
+    async def upsert(self, cart: Cart) -> Cart:
+        self._carts[cart.id] = cart
+        return cart
+
+    async def delete(self, tenant_id: UUID, cart_id: UUID) -> None:
+        self._carts.pop(cart_id, None)
+
+
+class FakeOrderRepository:
+    def __init__(self) -> None:
+        self._orders: dict[UUID, Order] = {}
+
+    async def get_by_id(self, tenant_id: UUID, order_id: UUID) -> Order | None:
+        o = self._orders.get(order_id)
+        return o if o and o.tenant_id == tenant_id else None
+
+    async def add(self, order: Order) -> Order:
+        self._orders[order.id] = order
+        return order
+
+    async def update(self, order: Order) -> Order:
+        self._orders[order.id] = order
+        return order
+
+    def _filtered(self, tenant_id: UUID, filters: OrderFilters) -> list[Order]:
+        items = [o for o in self._orders.values() if o.tenant_id == tenant_id]
+        if filters.customer_id is not None:
+            items = [o for o in items if o.customer_id == filters.customer_id]
+        if filters.status is not None:
+            items = [o for o in items if o.status == filters.status]
+        return items
+
+    async def count(self, tenant_id: UUID, filters: OrderFilters) -> int:
+        return len(self._filtered(tenant_id, filters))
+
+    async def list(self, tenant_id: UUID, filters: OrderFilters) -> list[Order]:
+        items = self._filtered(tenant_id, filters)
+        return items[filters.offset : filters.offset + filters.limit]
+
+
+class FakeCheckoutUnitOfWork:
+    """A UnitOfWork fake exposing products/customers/carts/orders for testing
+    CheckoutUseCase without a DB — no row-locking semantics (single-threaded
+    fakes can't model that); the real row-lock is proven in the Postgres
+    concurrency integration test instead."""
+
+    def __init__(
+        self,
+        products: FakeProductRepository,
+        customers: FakeCustomerRepository,
+        carts: FakeCartRepository,
+        orders: FakeOrderRepository,
+    ) -> None:
+        self.products = products
+        self.customers = customers
+        self.carts = carts
+        self.orders = orders
+        self.committed = False
+
+    async def __aenter__(self) -> "FakeCheckoutUnitOfWork":
+        return self
+
+    async def __aexit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
+        pass
+
+    async def set_tenant_context(self, tenant_id: UUID) -> None:
+        pass
+
+    async def commit(self) -> None:
+        self.committed = True
+
+    async def rollback(self) -> None:
+        pass

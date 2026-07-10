@@ -7,18 +7,22 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.application.dto.auth import AuthenticatedAdmin
+from src.application.dto.auth import AuthenticatedAdmin, AuthenticatedCustomer
 from src.application.interfaces.cache import Cache
 from src.application.interfaces.storage import ObjectStorage
 from src.application.interfaces.token_blacklist import TokenBlacklist
 from src.application.interfaces.unit_of_work import UnitOfWork
+from src.application.use_cases.cart.get_or_create_cart import CartIdentity
 from src.application.use_cases.themes.get_store_settings import GetStoreSettingsUseCase
 from src.core.config import settings
 from src.core.security import decode_token
 from src.domain.entities.admin_user import AdminRole
-from src.domain.exceptions import AuthenticationError, PermissionDeniedError
+from src.domain.exceptions import AuthenticationError, PermissionDeniedError, ValidationError
 from src.domain.repositories.admin_user_repository import AdminUserRepository
+from src.domain.repositories.cart_repository import CartRepository
 from src.domain.repositories.category_repository import CategoryRepository
+from src.domain.repositories.customer_repository import CustomerRepository
+from src.domain.repositories.order_repository import OrderRepository
 from src.domain.repositories.product_repository import ProductRepository
 from src.domain.repositories.store_settings_repository import StoreSettingsRepository
 from src.domain.repositories.tenant_repository import TenantRepository
@@ -29,8 +33,15 @@ from src.infrastructure.cache.redis_token_blacklist import RedisTokenBlacklist
 from src.infrastructure.db.repositories.sqlalchemy_admin_user_repository import (
     SqlAlchemyAdminUserRepository,
 )
+from src.infrastructure.db.repositories.sqlalchemy_cart_repository import SqlAlchemyCartRepository
 from src.infrastructure.db.repositories.sqlalchemy_category_repository import (
     SqlAlchemyCategoryRepository,
+)
+from src.infrastructure.db.repositories.sqlalchemy_customer_repository import (
+    SqlAlchemyCustomerRepository,
+)
+from src.infrastructure.db.repositories.sqlalchemy_order_repository import (
+    SqlAlchemyOrderRepository,
 )
 from src.infrastructure.db.repositories.sqlalchemy_product_repository import (
     SqlAlchemyProductRepository,
@@ -214,3 +225,85 @@ async def require_platform_admin(
     """Interim static-secret gate; Phase 8 replaces this with real superadmin auth."""
     if x_platform_admin_key != settings.platform_admin_api_key:
         raise AuthenticationError("Invalid platform admin credentials")
+
+
+def get_customer_repository(session: DbSession) -> CustomerRepository:
+    return SqlAlchemyCustomerRepository(session)
+
+
+CustomerRepositoryDep = Annotated[CustomerRepository, Depends(get_customer_repository)]
+
+
+def get_cart_repository(session: DbSession) -> CartRepository:
+    return SqlAlchemyCartRepository(session)
+
+
+CartRepositoryDep = Annotated[CartRepository, Depends(get_cart_repository)]
+
+
+def get_order_repository(session: DbSession) -> OrderRepository:
+    return SqlAlchemyOrderRepository(session)
+
+
+OrderRepositoryDep = Annotated[OrderRepository, Depends(get_order_repository)]
+
+
+async def get_current_customer(
+    resolved_tenant_id: ResolvedTenantIdDep,
+    token_blacklist: TokenBlacklistDep,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)] = None,
+) -> AuthenticatedCustomer:
+    if credentials is None:
+        raise AuthenticationError("Missing bearer token")
+    try:
+        payload = decode_token(credentials.credentials)
+    except ValueError as exc:
+        raise AuthenticationError("Invalid or expired token") from exc
+
+    if payload.get("type") != "access" or payload.get("role") != "customer":
+        raise AuthenticationError("Not a customer access token")
+    if await token_blacklist.is_revoked(payload["jti"]):
+        raise AuthenticationError("Token has been revoked")
+
+    token_tenant_id = UUID(payload["tenant_id"])
+    if resolved_tenant_id is not None and resolved_tenant_id != token_tenant_id:
+        raise PermissionDeniedError("Token does not match resolved tenant")
+
+    return AuthenticatedCustomer(customer_id=UUID(payload["sub"]), tenant_id=token_tenant_id)
+
+
+CurrentCustomerDep = Annotated[AuthenticatedCustomer, Depends(get_current_customer)]
+
+
+async def get_cart_identity(
+    resolved_tenant_id: ResolvedTenantIdDep,
+    token_blacklist: TokenBlacklistDep,
+    x_cart_session_id: Annotated[str | None, Header()] = None,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)] = None,
+) -> CartIdentity:
+    """Resolves the cart owner: an authenticated customer's bearer token takes
+    priority; otherwise falls back to the anonymous X-Cart-Session-Id header
+    (Section 6's "Cart (session or authenticated customer)")."""
+    if resolved_tenant_id is None:
+        raise AuthenticationError("Store not resolved")
+
+    if credentials is not None:
+        try:
+            payload = decode_token(credentials.credentials)
+        except ValueError:
+            payload = None
+        if (
+            payload is not None
+            and payload.get("type") == "access"
+            and payload.get("role") == "customer"
+            and not await token_blacklist.is_revoked(payload["jti"])
+        ):
+            return CartIdentity(tenant_id=resolved_tenant_id, customer_id=UUID(payload["sub"]))
+
+    if x_cart_session_id:
+        return CartIdentity(tenant_id=resolved_tenant_id, session_id=x_cart_session_id)
+
+    raise ValidationError("Provide a customer bearer token or an X-Cart-Session-Id header")
+
+
+CartIdentityDep = Annotated[CartIdentity, Depends(get_cart_identity)]
