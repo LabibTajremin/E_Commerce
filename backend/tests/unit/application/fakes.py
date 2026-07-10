@@ -1,7 +1,9 @@
 from uuid import UUID
 
 from src.domain.entities.admin_user import AdminUser
+from src.domain.entities.store_settings import StoreSettings
 from src.domain.entities.tenant import Tenant
+from src.domain.entities.theme import Theme
 from src.domain.repositories.tenant_repository import TenantFilters
 
 
@@ -100,3 +102,35 @@ class FakeUnitOfWork:
 
     async def rollback(self) -> None:
         pass
+
+
+class FakeThemeRepository:
+    def __init__(self, themes: list[Theme] | None = None) -> None:
+        self._themes: dict[UUID, Theme] = {t.id: t for t in (themes or [])}
+
+    async def get_by_id(self, theme_id: UUID) -> Theme | None:
+        return self._themes.get(theme_id)
+
+    async def list(self) -> list[Theme]:
+        return list(self._themes.values())
+
+
+class FakeStoreSettingsRepository:
+    def __init__(self) -> None:
+        self._by_tenant: dict[UUID, StoreSettings] = {}
+
+    async def get_by_tenant(self, tenant_id: UUID) -> StoreSettings | None:
+        return self._by_tenant.get(tenant_id)
+
+    async def upsert(self, store_settings: StoreSettings) -> StoreSettings:
+        self._by_tenant[store_settings.tenant_id] = store_settings
+        return store_settings
+
+
+class FakeObjectStorage:
+    def __init__(self) -> None:
+        self.uploaded: list[tuple[str, bytes, str]] = []
+
+    async def upload(self, *, key: str, content: bytes, content_type: str) -> str:
+        self.uploaded.append((key, content, content_type))
+        return f"https://cdn.test/{key}"

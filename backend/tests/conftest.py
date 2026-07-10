@@ -4,6 +4,8 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from testcontainers.core.container import DockerContainer
+from testcontainers.core.waiting_utils import wait_for_logs
 from testcontainers.postgres import PostgresContainer
 from testcontainers.redis import RedisContainer
 
@@ -41,6 +43,27 @@ def redis_url(redis_container: RedisContainer) -> str:
     host = redis_container.get_container_host_ip()
     port = redis_container.get_exposed_port(6379)
     return f"redis://{host}:{port}/0"
+
+
+@pytest.fixture(scope="session")
+def minio_container():
+    container = (
+        DockerContainer("minio/minio:latest")
+        .with_env("MINIO_ROOT_USER", "minioadmin")
+        .with_env("MINIO_ROOT_PASSWORD", "minioadmin")
+        .with_exposed_ports(9000)
+        .with_command("server /data")
+    )
+    with container:
+        wait_for_logs(container, "1 Online")
+        yield container
+
+
+@pytest.fixture(scope="session")
+def minio_endpoint_url(minio_container: DockerContainer) -> str:
+    host = minio_container.get_container_host_ip()
+    port = minio_container.get_exposed_port(9000)
+    return f"http://{host}:{port}"
 
 
 @pytest.fixture(scope="session")

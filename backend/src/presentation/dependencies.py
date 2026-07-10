@@ -8,24 +8,35 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.dto.auth import AuthenticatedAdmin
+from src.application.interfaces.storage import ObjectStorage
 from src.application.interfaces.token_blacklist import TokenBlacklist
 from src.application.interfaces.unit_of_work import UnitOfWork
+from src.application.use_cases.themes.get_store_settings import GetStoreSettingsUseCase
 from src.core.config import settings
 from src.core.security import decode_token
 from src.domain.entities.admin_user import AdminRole
 from src.domain.exceptions import AuthenticationError, PermissionDeniedError
 from src.domain.repositories.admin_user_repository import AdminUserRepository
+from src.domain.repositories.store_settings_repository import StoreSettingsRepository
 from src.domain.repositories.tenant_repository import TenantRepository
+from src.domain.repositories.theme_repository import ThemeRepository
 from src.infrastructure.cache.redis_client import get_redis
 from src.infrastructure.cache.redis_token_blacklist import RedisTokenBlacklist
 from src.infrastructure.db.repositories.sqlalchemy_admin_user_repository import (
     SqlAlchemyAdminUserRepository,
 )
+from src.infrastructure.db.repositories.sqlalchemy_store_settings_repository import (
+    SqlAlchemyStoreSettingsRepository,
+)
 from src.infrastructure.db.repositories.sqlalchemy_tenant_repository import (
     SqlAlchemyTenantRepository,
 )
+from src.infrastructure.db.repositories.sqlalchemy_theme_repository import (
+    SqlAlchemyThemeRepository,
+)
 from src.infrastructure.db.session import async_session_factory
 from src.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
+from src.infrastructure.storage.s3_storage import S3ObjectStorage
 
 _bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -130,6 +141,40 @@ def require_role(*allowed_roles: AdminRole) -> Any:
         return current
 
     return Depends(_check)
+
+
+def get_theme_repository(session: DbSession) -> ThemeRepository:
+    return SqlAlchemyThemeRepository(session)
+
+
+ThemeRepositoryDep = Annotated[ThemeRepository, Depends(get_theme_repository)]
+
+
+def get_store_settings_repository(session: DbSession) -> StoreSettingsRepository:
+    return SqlAlchemyStoreSettingsRepository(session)
+
+
+StoreSettingsRepositoryDep = Annotated[
+    StoreSettingsRepository, Depends(get_store_settings_repository)
+]
+
+
+def get_object_storage() -> ObjectStorage:
+    return S3ObjectStorage()
+
+
+ObjectStorageDep = Annotated[ObjectStorage, Depends(get_object_storage)]
+
+
+def get_get_store_settings_use_case(
+    store_settings_repository: StoreSettingsRepositoryDep, theme_repository: ThemeRepositoryDep
+) -> GetStoreSettingsUseCase:
+    return GetStoreSettingsUseCase(store_settings_repository, theme_repository)
+
+
+GetStoreSettingsUseCaseDep = Annotated[
+    GetStoreSettingsUseCase, Depends(get_get_store_settings_use_case)
+]
 
 
 async def require_platform_admin(

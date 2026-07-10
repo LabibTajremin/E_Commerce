@@ -10,7 +10,9 @@ from src.core.config import settings
 
 # Import all models here so Base.metadata is fully populated for autogenerate.
 from src.infrastructure.db.models.admin_user import AdminUserModel  # noqa: F401
+from src.infrastructure.db.models.store_settings import StoreSettingsModel  # noqa: F401
 from src.infrastructure.db.models.tenant import TenantModel  # noqa: F401
+from src.infrastructure.db.models.theme import ThemeModel  # noqa: F401
 from src.infrastructure.db.session import Base
 
 config = context.config

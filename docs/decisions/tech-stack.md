@@ -16,6 +16,12 @@ builds are reproducible across dev, CI, and Vercel.
   advisory in its Vite dependency chain), Testing Library 16.1.0.
 - Database: PostgreSQL 16 (via `postgres:16-alpine` in docker-compose / testcontainers).
 
+- Object storage uses `aioboto3==13.3.0` rather than plain `boto3` (still listed
+  in Section 2). The app is async-first end to end (async SQLAlchemy, async
+  routes); calling synchronous `boto3` from an `async def` route would block
+  the event loop. `aioboto3` wraps `boto3`/`aiobotocore` with an async client
+  and works identically against MinIO via `endpoint_url`, so this is a
+  same-tech, async-compatible substitution rather than a stack change.
 - `bcrypt` is pinned to `4.0.1` explicitly. `passlib[bcrypt]==1.7.4` is unmaintained
   and probes `bcrypt.__about__` at import time, an attribute `bcrypt>=4.1` removed;
   without the pin, every `hash_password`/`verify_password` call raises. `4.0.1` is

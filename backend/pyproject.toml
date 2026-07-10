@@ -16,7 +16,7 @@ dependencies = [
     "bcrypt==4.0.1",  # passlib 1.7.4 probes bcrypt.__about__, removed in bcrypt>=4.1
     "redis==5.2.1",
     "celery==5.4.0",
-    "boto3==1.35.90",
+    "aioboto3==13.3.0",  # async wrapper around boto3, required since the app is async-first
     "stripe==11.4.1",
     "httpx==0.28.1",
     "structlog==24.4.0",
@@ -60,12 +60,23 @@ target-version = "py312"
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.ruff.lint.flake8-bugbear]
-extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Body"]
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi.Form",
+    "fastapi.File",
+]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
 exclude = ["tests/"]
+
+[[tool.mypy.overrides]]
+module = "aioboto3.*"
+ignore_missing_imports = true
 
 [tool.coverage.run]
 source = ["src"]
