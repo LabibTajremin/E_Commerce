@@ -17,7 +17,6 @@ os.environ.setdefault("S3_ACCESS_KEY", "test")
 os.environ.setdefault("S3_SECRET_KEY", "test")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/test")
-os.environ.setdefault("PLATFORM_ADMIN_API_KEY", "test-platform-admin-key")
 
 
 @pytest.fixture(scope="session")

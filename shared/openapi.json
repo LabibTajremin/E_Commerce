@@ -30,6 +30,127 @@
         }
       }
     },
+    "/api/v1/platform/auth/login": {
+      "post": {
+        "tags": [
+          "platform:auth"
+        ],
+        "summary": "Login",
+        "operationId": "login_api_v1_platform_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPairResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/auth/refresh": {
+      "post": {
+        "tags": [
+          "platform:auth"
+        ],
+        "summary": "Refresh",
+        "operationId": "refresh_api_v1_platform_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPairResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/auth/logout": {
+      "post": {
+        "tags": [
+          "platform:auth"
+        ],
+        "summary": "Logout",
+        "operationId": "logout_api_v1_platform_auth_logout_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogoutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/platform/tenants": {
       "post": {
         "tags": [
@@ -37,22 +158,9 @@
         ],
         "summary": "Create Tenant",
         "operationId": "create_tenant_api_v1_platform_tenants_post",
-        "parameters": [
+        "security": [
           {
-            "name": "x-platform-admin-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Platform-Admin-Key"
-            }
+            "HTTPBearer": []
           }
         ],
         "requestBody": {
@@ -94,6 +202,11 @@
         ],
         "summary": "List Tenants",
         "operationId": "list_tenants_api_v1_platform_tenants_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "status",
@@ -149,22 +262,6 @@
               "default": 0,
               "title": "Offset"
             }
-          },
-          {
-            "name": "x-platform-admin-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Platform-Admin-Key"
-            }
           }
         ],
         "responses": {
@@ -202,6 +299,11 @@
         ],
         "summary": "Suspend Tenant",
         "operationId": "suspend_tenant_api_v1_platform_tenants__tenant_id__suspend_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "tenant_id",
@@ -211,22 +313,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Tenant Id"
-            }
-          },
-          {
-            "name": "x-platform-admin-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Platform-Admin-Key"
             }
           }
         ],
@@ -261,6 +347,11 @@
         ],
         "summary": "Reactivate Tenant",
         "operationId": "reactivate_tenant_api_v1_platform_tenants__tenant_id__reactivate_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "tenant_id",
@@ -271,22 +362,6 @@
               "format": "uuid",
               "title": "Tenant Id"
             }
-          },
-          {
-            "name": "x-platform-admin-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Platform-Admin-Key"
-            }
           }
         ],
         "responses": {
@@ -296,6 +371,112 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TenantResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/tenants/{tenant_id}/usage": {
+      "get": {
+        "tags": [
+          "platform:tenants"
+        ],
+        "summary": "Get Tenant Usage",
+        "operationId": "get_tenant_usage_api_v1_platform_tenants__tenant_id__usage_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantUsageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/tenants/{tenant_id}/plan-override": {
+      "post": {
+        "tags": [
+          "platform:tenants"
+        ],
+        "summary": "Override Tenant Plan",
+        "operationId": "override_tenant_plan_api_v1_platform_tenants__tenant_id__plan_override_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanOverrideRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantSubscriptionResponse"
                 }
               }
             }
@@ -3076,6 +3257,20 @@
         ],
         "title": "PayOrderRequest"
       },
+      "PlanOverrideRequest": {
+        "properties": {
+          "plan_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Plan Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plan_id"
+        ],
+        "title": "PlanOverrideRequest"
+      },
       "ProductCreateRequest": {
         "properties": {
           "name": {
@@ -4110,6 +4305,34 @@
           "current_period_end"
         ],
         "title": "TenantSubscriptionResponse"
+      },
+      "TenantUsageResponse": {
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Tenant Id"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/SubscriptionPlanResponse"
+          },
+          "product_count": {
+            "type": "integer",
+            "title": "Product Count"
+          },
+          "banner_count": {
+            "type": "integer",
+            "title": "Banner Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tenant_id",
+          "plan",
+          "product_count",
+          "banner_count"
+        ],
+        "title": "TenantUsageResponse"
       },
       "ThemeLayoutType": {
         "type": "string",

@@ -22,6 +22,7 @@ from tests.unit.application.fakes import (
     FakeCustomerRepository,
     FakeOrderRepository,
     FakeProductRepository,
+    unlimited_plan_use_case,
 )
 
 
@@ -52,7 +53,7 @@ async def _setup(
             tenant_id=tenant_id, email="jane@example.com", password="hunter22!!", name="Jane"
         )
     )
-    product = await CreateProductUseCase(products, categories).execute(
+    product = await CreateProductUseCase(products, categories, unlimited_plan_use_case()).execute(
         CreateProductInput(tenant_id=tenant_id, name="Widget", price=Decimal("10.00"), stock_qty=5)
     )
     return products, customers, carts, orders, customer, product

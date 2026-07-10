@@ -14,6 +14,7 @@ from src.infrastructure.db.models.cart import CartModel  # noqa: F401
 from src.infrastructure.db.models.category import CategoryModel  # noqa: F401
 from src.infrastructure.db.models.customer import CustomerModel  # noqa: F401
 from src.infrastructure.db.models.order import OrderLineItemModel, OrderModel  # noqa: F401
+from src.infrastructure.db.models.platform_admin import PlatformAdminModel  # noqa: F401
 from src.infrastructure.db.models.product import ProductModel  # noqa: F401
 from src.infrastructure.db.models.store_settings import StoreSettingsModel  # noqa: F401
 from src.infrastructure.db.models.subscription_plan import SubscriptionPlanModel  # noqa: F401

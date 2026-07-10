@@ -3,7 +3,15 @@ from uuid import uuid4
 import pytest
 
 from src.application.use_cases.auth.login import LoginInput, LoginUseCase
+from src.application.use_cases.auth.login_platform_admin import (
+    LoginPlatformAdminInput,
+    LoginPlatformAdminUseCase,
+)
 from src.application.use_cases.auth.logout import LogoutInput, LogoutUseCase
+from src.application.use_cases.auth.refresh_platform_admin_token import (
+    RefreshPlatformAdminTokenInput,
+    RefreshPlatformAdminTokenUseCase,
+)
 from src.application.use_cases.auth.refresh_token import RefreshTokenInput, RefreshTokenUseCase
 from src.application.use_cases.auth.register_tenant_owner import (
     RegisterTenantOwnerInput,
@@ -11,10 +19,12 @@ from src.application.use_cases.auth.register_tenant_owner import (
 )
 from src.core.security import create_token, hash_password
 from src.domain.entities.admin_user import AdminUser
+from src.domain.entities.platform_admin import PlatformAdmin
 from src.domain.exceptions import AuthenticationError, EntityAlreadyExistsError
 from src.domain.value_objects.email import Email
 from tests.unit.application.fakes import (
     FakeAdminUserRepository,
+    FakePlatformAdminRepository,
     FakeTenantRepository,
     FakeTokenBlacklist,
     FakeUnitOfWork,
@@ -190,3 +200,71 @@ async def test_logout_revokes_both_tokens() -> None:
 
     assert await blacklist.is_revoked(access_jti) is True
     assert await blacklist.is_revoked(refresh_jti) is True
+
+
+async def test_platform_admin_login_succeeds_with_correct_credentials() -> None:
+    admins = FakePlatformAdminRepository()
+    await admins.add(
+        PlatformAdmin(
+            email=Email("root@platform.com"), hashed_password=hash_password("hunter22!!")
+        )
+    )
+
+    tokens = await LoginPlatformAdminUseCase(admins).execute(
+        LoginPlatformAdminInput(email="root@platform.com", password="hunter22!!")
+    )
+
+    assert tokens.access_token
+    assert tokens.refresh_token
+
+
+async def test_platform_admin_login_rejects_unknown_email() -> None:
+    with pytest.raises(AuthenticationError):
+        await LoginPlatformAdminUseCase(FakePlatformAdminRepository()).execute(
+            LoginPlatformAdminInput(email="ghost@platform.com", password="whatever")
+        )
+
+
+async def test_platform_admin_login_rejects_wrong_password() -> None:
+    admins = FakePlatformAdminRepository()
+    await admins.add(
+        PlatformAdmin(
+            email=Email("root@platform.com"), hashed_password=hash_password("hunter22!!")
+        )
+    )
+
+    with pytest.raises(AuthenticationError):
+        await LoginPlatformAdminUseCase(admins).execute(
+            LoginPlatformAdminInput(email="root@platform.com", password="wrong")
+        )
+
+
+async def test_platform_admin_refresh_issues_new_token_pair_and_revokes_old_one() -> None:
+    admins = FakePlatformAdminRepository()
+    admin = await admins.add(
+        PlatformAdmin(email=Email("root@platform.com"), hashed_password="hash")
+    )
+    blacklist = FakeTokenBlacklist()
+    refresh_token, jti = create_token(
+        subject=admin.id, tenant_id=None, token_type="refresh", role="platform_superadmin"
+    )
+
+    new_tokens = await RefreshPlatformAdminTokenUseCase(admins, blacklist).execute(
+        RefreshPlatformAdminTokenInput(refresh_token=refresh_token)
+    )
+
+    assert new_tokens.access_token
+    assert await blacklist.is_revoked(jti) is True
+
+
+async def test_platform_admin_refresh_rejects_tenant_admin_token() -> None:
+    admins = FakePlatformAdminRepository()
+    blacklist = FakeTokenBlacklist()
+    refresh_token, _ = create_token(
+        subject=uuid4(), tenant_id=uuid4(), token_type="refresh", role="owner"
+    )
+
+    with pytest.raises(AuthenticationError):
+        await RefreshPlatformAdminTokenUseCase(admins, blacklist).execute(
+            RefreshPlatformAdminTokenInput(refresh_token=refresh_token)
+        )

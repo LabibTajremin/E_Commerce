@@ -29,7 +29,6 @@ class Settings(BaseSettings):
 
     cors_allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:3001"]
     platform_base_domain: str = "localhost"
-    platform_admin_api_key: str
 
 
 @lru_cache

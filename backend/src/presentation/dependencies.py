@@ -7,15 +7,20 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.application.dto.auth import AuthenticatedAdmin, AuthenticatedCustomer
+from src.application.dto.auth import (
+    AuthenticatedAdmin,
+    AuthenticatedCustomer,
+    AuthenticatedPlatformAdmin,
+)
 from src.application.interfaces.cache import Cache
 from src.application.interfaces.payment_gateway import PaymentGateway
 from src.application.interfaces.storage import ObjectStorage
 from src.application.interfaces.token_blacklist import TokenBlacklist
 from src.application.interfaces.unit_of_work import UnitOfWork
+from src.application.use_cases.auth.login_platform_admin import PLATFORM_SUPERADMIN_ROLE
+from src.application.use_cases.billing.get_effective_plan import GetEffectivePlanUseCase
 from src.application.use_cases.cart.get_or_create_cart import CartIdentity
 from src.application.use_cases.themes.get_store_settings import GetStoreSettingsUseCase
-from src.core.config import settings
 from src.core.security import decode_token
 from src.domain.entities.admin_user import AdminRole
 from src.domain.exceptions import AuthenticationError, PermissionDeniedError, ValidationError
@@ -24,6 +29,7 @@ from src.domain.repositories.cart_repository import CartRepository
 from src.domain.repositories.category_repository import CategoryRepository
 from src.domain.repositories.customer_repository import CustomerRepository
 from src.domain.repositories.order_repository import OrderRepository
+from src.domain.repositories.platform_admin_repository import PlatformAdminRepository
 from src.domain.repositories.product_repository import ProductRepository
 from src.domain.repositories.store_settings_repository import StoreSettingsRepository
 from src.domain.repositories.subscription_plan_repository import SubscriptionPlanRepository
@@ -45,6 +51,9 @@ from src.infrastructure.db.repositories.sqlalchemy_customer_repository import (
 )
 from src.infrastructure.db.repositories.sqlalchemy_order_repository import (
     SqlAlchemyOrderRepository,
+)
+from src.infrastructure.db.repositories.sqlalchemy_platform_admin_repository import (
+    SqlAlchemyPlatformAdminRepository,
 )
 from src.infrastructure.db.repositories.sqlalchemy_product_repository import (
     SqlAlchemyProductRepository,
@@ -229,12 +238,37 @@ def get_cache() -> Cache:
 CacheDep = Annotated[Cache, Depends(get_cache)]
 
 
+def get_platform_admin_repository(session: DbSession) -> PlatformAdminRepository:
+    return SqlAlchemyPlatformAdminRepository(session)
+
+
+PlatformAdminRepositoryDep = Annotated[
+    PlatformAdminRepository, Depends(get_platform_admin_repository)
+]
+
+
 async def require_platform_admin(
-    x_platform_admin_key: Annotated[str | None, Header()] = None,
-) -> None:
-    """Interim static-secret gate; Phase 8 replaces this with real superadmin auth."""
-    if x_platform_admin_key != settings.platform_admin_api_key:
-        raise AuthenticationError("Invalid platform admin credentials")
+    token_blacklist: TokenBlacklistDep,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)] = None,
+) -> AuthenticatedPlatformAdmin:
+    if credentials is None:
+        raise AuthenticationError("Missing bearer token")
+    try:
+        payload = decode_token(credentials.credentials)
+    except ValueError as exc:
+        raise AuthenticationError("Invalid or expired token") from exc
+
+    if payload.get("type") != "access":
+        raise AuthenticationError("Not an access token")
+    if payload.get("role") != PLATFORM_SUPERADMIN_ROLE:
+        raise PermissionDeniedError("Not a platform admin")
+    if await token_blacklist.is_revoked(payload["jti"]):
+        raise AuthenticationError("Token has been revoked")
+
+    return AuthenticatedPlatformAdmin(admin_id=UUID(payload["sub"]))
+
+
+CurrentPlatformAdminDep = Annotated[AuthenticatedPlatformAdmin, Depends(require_platform_admin)]
 
 
 def get_customer_repository(session: DbSession) -> CustomerRepository:
@@ -334,6 +368,18 @@ def get_tenant_subscription_repository(session: DbSession) -> TenantSubscription
 
 TenantSubscriptionRepositoryDep = Annotated[
     TenantSubscriptionRepository, Depends(get_tenant_subscription_repository)
+]
+
+
+def get_get_effective_plan_use_case(
+    plan_repository: SubscriptionPlanRepositoryDep,
+    subscription_repository: TenantSubscriptionRepositoryDep,
+) -> GetEffectivePlanUseCase:
+    return GetEffectivePlanUseCase(plan_repository, subscription_repository)
+
+
+GetEffectivePlanUseCaseDep = Annotated[
+    GetEffectivePlanUseCase, Depends(get_get_effective_plan_use_case)
 ]
 
 

@@ -22,6 +22,7 @@ from src.presentation.api.v1.admin.me import router as admin_me_router
 from src.presentation.api.v1.admin.orders import router as admin_orders_router
 from src.presentation.api.v1.admin.products import router as admin_products_router
 from src.presentation.api.v1.auth.register import router as auth_register_router
+from src.presentation.api.v1.platform.auth import router as platform_auth_router
 from src.presentation.api.v1.platform.tenants import router as platform_tenants_router
 from src.presentation.api.v1.storefront.cart import router as storefront_cart_router
 from src.presentation.api.v1.storefront.categories import router as storefront_categories_router
@@ -90,6 +91,7 @@ async def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
 
+app.include_router(platform_auth_router, prefix="/api/v1/platform")
 app.include_router(platform_tenants_router, prefix="/api/v1/platform")
 app.include_router(storefront_context_router, prefix="/api/v1/storefront")
 app.include_router(storefront_products_router, prefix="/api/v1/storefront")

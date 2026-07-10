@@ -3,6 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from src.application.use_cases.billing.get_tenant_usage import TenantUsage
 from src.domain.entities.subscription_plan import SubscriptionPlan
 from src.domain.entities.tenant_subscription import TenantSubscription
 
@@ -43,6 +44,26 @@ class TenantSubscriptionResponse(BaseModel):
                 else None
             ),
         )
+
+
+class TenantUsageResponse(BaseModel):
+    tenant_id: UUID
+    plan: SubscriptionPlanResponse
+    product_count: int
+    banner_count: int
+
+    @classmethod
+    def from_usage(cls, usage: TenantUsage) -> "TenantUsageResponse":
+        return cls(
+            tenant_id=usage.tenant_id,
+            plan=SubscriptionPlanResponse.from_entity(usage.plan),
+            product_count=usage.product_count,
+            banner_count=usage.banner_count,
+        )
+
+
+class PlanOverrideRequest(BaseModel):
+    plan_id: UUID
 
 
 class SubscribeRequest(BaseModel):

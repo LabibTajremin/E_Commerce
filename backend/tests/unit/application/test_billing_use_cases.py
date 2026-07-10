@@ -34,6 +34,7 @@ from tests.unit.application.fakes import (
     FakePaymentGateway,
     FakeProductRepository,
     FakeTenantSubscriptionRepository,
+    unlimited_plan_use_case,
 )
 
 
@@ -57,7 +58,7 @@ async def test_create_order_checkout_session_uses_order_total_in_cents() -> None
             tenant_id=tenant_id, email="jane@example.com", password="hunter22!!", name="Jane"
         )
     )
-    product = await CreateProductUseCase(products, categories).execute(
+    product = await CreateProductUseCase(products, categories, unlimited_plan_use_case()).execute(
         CreateProductInput(tenant_id=tenant_id, name="Widget", price=Decimal("10.00"), stock_qty=5)
     )
     cart = Cart(tenant_id=tenant_id, customer_id=customer.id)

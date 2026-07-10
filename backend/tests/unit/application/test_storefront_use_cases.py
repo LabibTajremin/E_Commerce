@@ -22,14 +22,18 @@ from src.application.use_cases.storefront.list_public_products import (
     PublicProductFilters,
 )
 from src.domain.exceptions import EntityNotFoundError
-from tests.unit.application.fakes import FakeCategoryRepository, FakeProductRepository
+from tests.unit.application.fakes import (
+    FakeCategoryRepository,
+    FakeProductRepository,
+    unlimited_plan_use_case,
+)
 
 
 async def test_list_public_products_only_returns_published() -> None:
     products = FakeProductRepository()
     categories = FakeCategoryRepository()
     tenant_id = uuid4()
-    create = CreateProductUseCase(products, categories)
+    create = CreateProductUseCase(products, categories, unlimited_plan_use_case())
     draft = await create.execute(
         CreateProductInput(tenant_id=tenant_id, name="Draft", price=Decimal("1"))
     )
@@ -50,7 +54,7 @@ async def test_get_public_product_404s_for_draft() -> None:
     products = FakeProductRepository()
     categories = FakeCategoryRepository()
     tenant_id = uuid4()
-    draft = await CreateProductUseCase(products, categories).execute(
+    draft = await CreateProductUseCase(products, categories, unlimited_plan_use_case()).execute(
         CreateProductInput(tenant_id=tenant_id, name="Draft", price=Decimal("1"))
     )
 
@@ -67,7 +71,7 @@ async def test_get_public_product_returns_published() -> None:
     products = FakeProductRepository()
     categories = FakeCategoryRepository()
     tenant_id = uuid4()
-    product = await CreateProductUseCase(products, categories).execute(
+    product = await CreateProductUseCase(products, categories, unlimited_plan_use_case()).execute(
         CreateProductInput(tenant_id=tenant_id, name="Widget", price=Decimal("1"))
     )
     product.publish()

@@ -1,7 +1,9 @@
+from decimal import Decimal
 from uuid import uuid4
 
 import pytest
 
+from src.application.use_cases.billing.get_effective_plan import GetEffectivePlanUseCase
 from src.application.use_cases.themes.get_store_settings import GetStoreSettingsUseCase
 from src.application.use_cases.themes.select_theme import SelectThemeInput, SelectThemeUseCase
 from src.application.use_cases.themes.toggle_theme_section import (
@@ -17,12 +19,17 @@ from src.application.use_cases.themes.upload_store_image import (
     UploadStoreImageInput,
     UploadStoreImageUseCase,
 )
+from src.domain.entities.subscription_plan import SubscriptionPlan
 from src.domain.entities.theme import Theme, ThemeLayoutType
-from src.domain.exceptions import EntityNotFoundError, ValidationError
+from src.domain.exceptions import EntityNotFoundError, PlanLimitExceededError, ValidationError
+from src.domain.value_objects.money import Money
 from tests.unit.application.fakes import (
     FakeObjectStorage,
     FakeStoreSettingsRepository,
+    FakeSubscriptionPlanRepository,
+    FakeTenantSubscriptionRepository,
     FakeThemeRepository,
+    unlimited_plan_use_case,
 )
 
 
@@ -126,7 +133,9 @@ async def test_upload_store_image_sets_logo_url() -> None:
     get_use_case = GetStoreSettingsUseCase(store_settings, themes)
     await get_use_case.execute(tenant_id)
 
-    updated = await UploadStoreImageUseCase(store_settings, get_use_case, storage).execute(
+    updated = await UploadStoreImageUseCase(
+        store_settings, get_use_case, storage, unlimited_plan_use_case()
+    ).execute(
         UploadStoreImageInput(
             tenant_id=tenant_id,
             kind=ImageKind.LOGO,
@@ -148,7 +157,9 @@ async def test_upload_store_image_rejects_disallowed_content_type() -> None:
     get_use_case = GetStoreSettingsUseCase(store_settings, themes)
 
     with pytest.raises(ValidationError):
-        await UploadStoreImageUseCase(store_settings, get_use_case, storage).execute(
+        await UploadStoreImageUseCase(
+            store_settings, get_use_case, storage, unlimited_plan_use_case()
+        ).execute(
             UploadStoreImageInput(
                 tenant_id=uuid4(),
                 kind=ImageKind.BANNER,
@@ -166,12 +177,58 @@ async def test_upload_store_image_rejects_oversized_file() -> None:
     get_use_case = GetStoreSettingsUseCase(store_settings, themes)
 
     with pytest.raises(ValidationError):
-        await UploadStoreImageUseCase(store_settings, get_use_case, storage).execute(
+        await UploadStoreImageUseCase(
+            store_settings, get_use_case, storage, unlimited_plan_use_case()
+        ).execute(
             UploadStoreImageInput(
                 tenant_id=uuid4(),
                 kind=ImageKind.BANNER,
                 content=b"0" * (5 * 1024 * 1024 + 1),
                 content_type="image/png",
                 filename="huge.png",
+            )
+        )
+
+
+async def test_upload_store_image_enforces_banner_plan_limit() -> None:
+    themes = FakeThemeRepository([_grid_theme()])
+    store_settings = FakeStoreSettingsRepository()
+    storage = FakeObjectStorage()
+    tenant_id = uuid4()
+    get_use_case = GetStoreSettingsUseCase(store_settings, themes)
+    await get_use_case.execute(tenant_id)
+
+    plan = SubscriptionPlan(
+        name="Starter",
+        price=Money(Decimal("0")),
+        max_products=100,
+        max_banners=1,
+        custom_domain_allowed=False,
+    )
+    get_effective_plan = GetEffectivePlanUseCase(
+        FakeSubscriptionPlanRepository([plan]), FakeTenantSubscriptionRepository()
+    )
+
+    upload_use_case = UploadStoreImageUseCase(
+        store_settings, get_use_case, storage, get_effective_plan
+    )
+    await upload_use_case.execute(
+        UploadStoreImageInput(
+            tenant_id=tenant_id,
+            kind=ImageKind.BANNER,
+            content=b"fake-png-bytes",
+            content_type="image/png",
+            filename="banner-1.png",
+        )
+    )
+
+    with pytest.raises(PlanLimitExceededError):
+        await upload_use_case.execute(
+            UploadStoreImageInput(
+                tenant_id=tenant_id,
+                kind=ImageKind.BANNER,
+                content=b"fake-png-bytes-2",
+                content_type="image/png",
+                filename="banner-2.png",
             )
         )

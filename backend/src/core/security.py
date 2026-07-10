@@ -23,11 +23,15 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def create_token(
     *,
     subject: UUID,
-    tenant_id: UUID,
+    tenant_id: UUID | None,
     token_type: TokenType,
     role: str,
 ) -> tuple[str, str]:
-    """Returns (encoded_token, jti) — jti is used as the revocation key."""
+    """Returns (encoded_token, jti) — jti is used as the revocation key.
+
+    tenant_id is None for platform-superadmin tokens, which aren't scoped to
+    any tenant.
+    """
     now = datetime.now(UTC)
     expires_delta = (
         timedelta(minutes=settings.access_token_expire_minutes)
@@ -37,7 +41,7 @@ def create_token(
     jti = str(uuid4())
     payload: dict[str, Any] = {
         "sub": str(subject),
-        "tenant_id": str(tenant_id),
+        "tenant_id": str(tenant_id) if tenant_id is not None else None,
         "type": token_type,
         "role": role,
         "jti": jti,

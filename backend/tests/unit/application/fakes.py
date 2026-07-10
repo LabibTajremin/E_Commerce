@@ -1,19 +1,41 @@
+from decimal import Decimal
 from uuid import UUID
 
 from src.application.interfaces.payment_gateway import WebhookEvent
+from src.application.use_cases.billing.get_effective_plan import GetEffectivePlanUseCase
 from src.domain.entities.admin_user import AdminUser
 from src.domain.entities.cart import Cart
 from src.domain.entities.category import Category
 from src.domain.entities.customer import Customer
 from src.domain.entities.order import Order
+from src.domain.entities.platform_admin import PlatformAdmin
 from src.domain.entities.product import Product
 from src.domain.entities.store_settings import StoreSettings
+from src.domain.entities.subscription_plan import SubscriptionPlan
 from src.domain.entities.tenant import Tenant
 from src.domain.entities.tenant_subscription import TenantSubscription
 from src.domain.entities.theme import Theme
 from src.domain.repositories.order_repository import OrderFilters
 from src.domain.repositories.product_repository import ProductFilters
 from src.domain.repositories.tenant_repository import TenantFilters
+from src.domain.value_objects.money import Money
+
+
+class FakePlatformAdminRepository:
+    def __init__(self) -> None:
+        self._admins: dict[UUID, PlatformAdmin] = {}
+
+    async def get_by_id(self, platform_admin_id: UUID) -> PlatformAdmin | None:
+        return self._admins.get(platform_admin_id)
+
+    async def get_by_email(self, email: str) -> PlatformAdmin | None:
+        return next(
+            (a for a in self._admins.values() if str(a.email) == email.strip().lower()), None
+        )
+
+    async def add(self, platform_admin: PlatformAdmin) -> PlatformAdmin:
+        self._admins[platform_admin.id] = platform_admin
+        return platform_admin
 
 
 class FakeTenantRepository:
@@ -497,3 +519,67 @@ class FakePaymentGateway:
         if signature_header != "valid-signature":
             raise ValueError("Invalid Stripe webhook signature")
         return self.webhook_event
+
+
+class FakeSubscriptionPlanRepository:
+    def __init__(self, plans: list[SubscriptionPlan] | None = None) -> None:
+        self._plans: dict[UUID, SubscriptionPlan] = {p.id: p for p in (plans or [])}
+
+    async def get_by_id(self, plan_id: UUID) -> SubscriptionPlan | None:
+        return self._plans.get(plan_id)
+
+    async def list(self) -> list[SubscriptionPlan]:
+        return list(self._plans.values())
+
+
+class FakePlatformUnitOfWork:
+    """A UnitOfWork fake exposing the repos superadmin/platform use cases
+    need (tenants, products, store_settings, subscription_plans,
+    tenant_subscriptions) — no row-locking or real RLS, single-threaded."""
+
+    def __init__(
+        self,
+        tenants: FakeTenantRepository,
+        products: FakeProductRepository,
+        store_settings: FakeStoreSettingsRepository,
+        subscription_plans: FakeSubscriptionPlanRepository,
+        tenant_subscriptions: "FakeTenantSubscriptionRepository | None" = None,
+    ) -> None:
+        self.tenants = tenants
+        self.products = products
+        self.store_settings = store_settings
+        self.subscription_plans = subscription_plans
+        self.tenant_subscriptions = tenant_subscriptions or FakeTenantSubscriptionRepository()
+        self.committed = False
+
+    async def __aenter__(self) -> "FakePlatformUnitOfWork":
+        return self
+
+    async def __aexit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
+        pass
+
+    async def set_tenant_context(self, tenant_id: UUID) -> None:
+        pass
+
+    async def commit(self) -> None:
+        self.committed = True
+
+    async def rollback(self) -> None:
+        pass
+
+
+def unlimited_plan_use_case() -> GetEffectivePlanUseCase:
+    """A GetEffectivePlanUseCase backed by a single very-generous plan and no
+    tenant subscriptions, so it always falls back to that plan — for tests
+    that need CreateProductUseCase/UploadStoreImageUseCase but aren't
+    exercising plan-limit behavior themselves."""
+    plan = SubscriptionPlan(
+        name="Unlimited (test default)",
+        price=Money(Decimal("0")),
+        max_products=1_000_000,
+        max_banners=1_000_000,
+        custom_domain_allowed=True,
+    )
+    return GetEffectivePlanUseCase(
+        FakeSubscriptionPlanRepository([plan]), FakeTenantSubscriptionRepository()
+    )

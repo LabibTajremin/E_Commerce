@@ -34,6 +34,7 @@ from src.presentation.dependencies import (
     CacheDep,
     CategoryRepositoryDep,
     CurrentAdminDep,
+    GetEffectivePlanUseCaseDep,
     ObjectStorageDep,
     ProductRepositoryDep,
 )
@@ -56,9 +57,10 @@ async def create_product(
     current: CurrentAdminDep,
     product_repository: ProductRepositoryDep,
     category_repository: CategoryRepositoryDep,
+    get_effective_plan: GetEffectivePlanUseCaseDep,
     cache: CacheDep,
 ) -> ProductResponse:
-    use_case = CreateProductUseCase(product_repository, category_repository)
+    use_case = CreateProductUseCase(product_repository, category_repository, get_effective_plan)
     product = await use_case.execute(
         CreateProductInput(tenant_id=current.tenant_id, **body.model_dump())
     )

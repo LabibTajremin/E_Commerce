@@ -3,10 +3,7 @@ from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from src.domain.entities.theme import DEFAULT_THEME_SECTIONS
-from src.domain.exceptions import PlanLimitExceededError
 from src.domain.value_objects.color_hex import ColorHex
-
-MAX_BANNER_IMAGES = 5  # interim constant limit; Phase 8's PlanLimitPolicy replaces this.
 
 
 @dataclass(slots=True)
@@ -28,10 +25,6 @@ class StoreSettings:
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def add_banner(self, url: str) -> None:
-        if len(self.banner_images) >= MAX_BANNER_IMAGES:
-            raise PlanLimitExceededError(
-                f"Banner limit reached ({MAX_BANNER_IMAGES} max for this plan)"
-            )
         self.banner_images.append(url)
 
     def toggle_section(self, section: str, enabled: bool) -> None:

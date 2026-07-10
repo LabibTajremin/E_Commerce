@@ -20,3 +20,8 @@ class AuthenticatedAdmin:
 class AuthenticatedCustomer:
     customer_id: UUID
     tenant_id: UUID
+
+
+@dataclass(frozen=True, slots=True)
+class AuthenticatedPlatformAdmin:
+    admin_id: UUID

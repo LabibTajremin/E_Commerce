@@ -3,10 +3,12 @@ from decimal import Decimal
 from uuid import UUID
 
 from src.application.use_cases._slug import generate_unique_slug
+from src.application.use_cases.billing.get_effective_plan import GetEffectivePlanUseCase
 from src.domain.entities.product import Product
 from src.domain.exceptions import EntityAlreadyExistsError, EntityNotFoundError
 from src.domain.repositories.category_repository import CategoryRepository
-from src.domain.repositories.product_repository import ProductRepository
+from src.domain.repositories.product_repository import ProductFilters, ProductRepository
+from src.domain.services.plan_limit_policy import PlanLimitPolicy
 from src.domain.value_objects.money import Money
 from src.domain.value_objects.sku import SKU
 
@@ -26,16 +28,24 @@ class CreateProductInput:
 
 class CreateProductUseCase:
     def __init__(
-        self, product_repository: ProductRepository, category_repository: CategoryRepository
+        self,
+        product_repository: ProductRepository,
+        category_repository: CategoryRepository,
+        get_effective_plan: GetEffectivePlanUseCase,
     ) -> None:
         self._products = product_repository
         self._categories = category_repository
+        self._get_effective_plan = get_effective_plan
 
     async def execute(self, data: CreateProductInput) -> Product:
         if data.category_id is not None:
             category = await self._categories.get_by_id(data.tenant_id, data.category_id)
             if category is None:
                 raise EntityNotFoundError("Category", data.category_id)
+
+        plan = await self._get_effective_plan.execute(data.tenant_id)
+        current_count = await self._products.count(data.tenant_id, ProductFilters())
+        PlanLimitPolicy.check_product_limit(current_count, plan)
 
         sku = SKU(data.sku) if data.sku else None
         if sku is not None and await self._products.get_by_sku(data.tenant_id, str(sku)):

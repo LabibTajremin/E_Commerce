@@ -11,6 +11,8 @@ from src.domain.repositories.cart_repository import CartRepository
 from src.domain.repositories.customer_repository import CustomerRepository
 from src.domain.repositories.order_repository import OrderRepository
 from src.domain.repositories.product_repository import ProductRepository
+from src.domain.repositories.store_settings_repository import StoreSettingsRepository
+from src.domain.repositories.subscription_plan_repository import SubscriptionPlanRepository
 from src.domain.repositories.tenant_repository import TenantRepository
 from src.domain.repositories.tenant_subscription_repository import TenantSubscriptionRepository
 from src.infrastructure.db.repositories.sqlalchemy_admin_user_repository import (
@@ -25,6 +27,12 @@ from src.infrastructure.db.repositories.sqlalchemy_order_repository import (
 )
 from src.infrastructure.db.repositories.sqlalchemy_product_repository import (
     SqlAlchemyProductRepository,
+)
+from src.infrastructure.db.repositories.sqlalchemy_store_settings_repository import (
+    SqlAlchemyStoreSettingsRepository,
+)
+from src.infrastructure.db.repositories.sqlalchemy_subscription_plan_repository import (
+    SqlAlchemySubscriptionPlanRepository,
 )
 from src.infrastructure.db.repositories.sqlalchemy_tenant_repository import (
     SqlAlchemyTenantRepository,
@@ -60,6 +68,12 @@ class SqlAlchemyUnitOfWork:
             SqlAlchemyTenantSubscriptionRepository(self.session)
         )
         self.webhook_events: WebhookEventStore = SqlAlchemyWebhookEventStore(self.session)
+        self.store_settings: StoreSettingsRepository = SqlAlchemyStoreSettingsRepository(
+            self.session
+        )
+        self.subscription_plans: SubscriptionPlanRepository = SqlAlchemySubscriptionPlanRepository(
+            self.session
+        )
         return self
 
     async def set_tenant_context(self, tenant_id: UUID) -> None:

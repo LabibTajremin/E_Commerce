@@ -8,6 +8,8 @@ from src.domain.repositories.cart_repository import CartRepository
 from src.domain.repositories.customer_repository import CustomerRepository
 from src.domain.repositories.order_repository import OrderRepository
 from src.domain.repositories.product_repository import ProductRepository
+from src.domain.repositories.store_settings_repository import StoreSettingsRepository
+from src.domain.repositories.subscription_plan_repository import SubscriptionPlanRepository
 from src.domain.repositories.tenant_repository import TenantRepository
 from src.domain.repositories.tenant_subscription_repository import TenantSubscriptionRepository
 
@@ -21,6 +23,8 @@ class UnitOfWork(Protocol):
     orders: OrderRepository
     tenant_subscriptions: TenantSubscriptionRepository
     webhook_events: WebhookEventStore
+    store_settings: StoreSettingsRepository
+    subscription_plans: SubscriptionPlanRepository
 
     async def __aenter__(self) -> Self: ...
 

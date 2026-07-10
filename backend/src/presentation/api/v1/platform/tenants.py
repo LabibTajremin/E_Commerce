@@ -2,6 +2,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
+from src.application.use_cases.billing.get_tenant_usage import GetTenantUsageUseCase
+from src.application.use_cases.billing.override_plan import (
+    OverridePlanInput,
+    OverridePlanUseCase,
+)
 from src.application.use_cases.tenants.create_tenant import (
     CreateTenantInput,
     CreateTenantUseCase,
@@ -13,7 +18,12 @@ from src.application.use_cases.tenants.suspend_tenant import (
 )
 from src.domain.entities.tenant import TenantStatus
 from src.domain.repositories.tenant_repository import TenantFilters
-from src.presentation.dependencies import TenantRepositoryDep, require_platform_admin
+from src.presentation.dependencies import TenantRepositoryDep, UnitOfWorkDep, require_platform_admin
+from src.presentation.schemas.billing import (
+    PlanOverrideRequest,
+    TenantSubscriptionResponse,
+    TenantUsageResponse,
+)
 from src.presentation.schemas.tenant import TenantCreateRequest, TenantResponse
 
 router = APIRouter(
@@ -63,3 +73,21 @@ async def reactivate_tenant(
     use_case = ReactivateTenantUseCase(tenant_repository)
     tenant = await use_case.execute(tenant_id)
     return TenantResponse.from_entity(tenant)
+
+
+@router.get("/{tenant_id}/usage", response_model=TenantUsageResponse)
+async def get_tenant_usage(tenant_id: UUID, uow: UnitOfWorkDep) -> TenantUsageResponse:
+    use_case = GetTenantUsageUseCase(uow)
+    usage = await use_case.execute(tenant_id)
+    return TenantUsageResponse.from_usage(usage)
+
+
+@router.post("/{tenant_id}/plan-override", response_model=TenantSubscriptionResponse)
+async def override_tenant_plan(
+    tenant_id: UUID, body: PlanOverrideRequest, uow: UnitOfWorkDep
+) -> TenantSubscriptionResponse:
+    use_case = OverridePlanUseCase(uow)
+    subscription = await use_case.execute(
+        OverridePlanInput(tenant_id=tenant_id, plan_id=body.plan_id)
+    )
+    return TenantSubscriptionResponse.from_entity(subscription)

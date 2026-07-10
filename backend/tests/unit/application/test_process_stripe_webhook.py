@@ -31,6 +31,7 @@ from tests.unit.application.fakes import (
     FakeProductRepository,
     FakeTenantSubscriptionRepository,
     FakeWebhookEventStore,
+    unlimited_plan_use_case,
 )
 
 
@@ -67,7 +68,7 @@ async def _checked_out_order(
             tenant_id=tenant_id, email="jane@example.com", password="hunter22!!", name="Jane"
         )
     )
-    product = await CreateProductUseCase(products, categories).execute(
+    product = await CreateProductUseCase(products, categories, unlimited_plan_use_case()).execute(
         CreateProductInput(tenant_id=tenant_id, name="Widget", price=Decimal("10.00"), stock_qty=5)
     )
     cart = Cart(tenant_id=tenant_id, customer_id=customer.id)

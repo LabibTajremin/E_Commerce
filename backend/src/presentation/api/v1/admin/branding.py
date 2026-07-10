@@ -18,6 +18,7 @@ from src.presentation.caching import storefront_cache_namespace
 from src.presentation.dependencies import (
     CacheDep,
     CurrentAdminDep,
+    GetEffectivePlanUseCaseDep,
     GetStoreSettingsUseCaseDep,
     ObjectStorageDep,
     StoreSettingsRepositoryDep,
@@ -109,12 +110,13 @@ async def upload_store_image(
     store_settings_repository: StoreSettingsRepositoryDep,
     get_store_settings_uc: GetStoreSettingsUseCaseDep,
     object_storage: ObjectStorageDep,
+    get_effective_plan: GetEffectivePlanUseCaseDep,
     cache: CacheDep,
     kind: ImageKind = Form(...),
     file: UploadFile = File(...),
 ) -> StoreSettingsResponse:
     use_case = UploadStoreImageUseCase(
-        store_settings_repository, get_store_settings_uc, object_storage
+        store_settings_repository, get_store_settings_uc, object_storage, get_effective_plan
     )
     content = await file.read()
     settings = await use_case.execute(

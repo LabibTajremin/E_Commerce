@@ -22,12 +22,13 @@ from tests.unit.application.fakes import (
     FakeCartRepository,
     FakeCategoryRepository,
     FakeProductRepository,
+    unlimited_plan_use_case,
 )
 
 
 async def _make_product(products: FakeProductRepository, tenant_id: UUID) -> Product:
     categories = FakeCategoryRepository()
-    return await CreateProductUseCase(products, categories).execute(
+    return await CreateProductUseCase(products, categories, unlimited_plan_use_case()).execute(
         CreateProductInput(tenant_id=tenant_id, name="Widget", price=Decimal("9.99"))
     )
 
