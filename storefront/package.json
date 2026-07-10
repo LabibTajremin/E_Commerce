@@ -8,6 +8,7 @@
     "start": "next start -p 3001",
     "lint": "next lint",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -18,7 +19,10 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "3.2.0",
+    "@playwright/test": "1.61.1",
+    "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.1.0",
+    "@testing-library/user-event": "14.6.1",
     "@types/node": "22.10.5",
     "@types/react": "19.0.5",
     "@types/react-dom": "19.0.3",
