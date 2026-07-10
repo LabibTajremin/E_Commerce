@@ -14,7 +14,9 @@ from src.application.use_cases.themes.upload_store_image import (
     UploadStoreImageInput,
     UploadStoreImageUseCase,
 )
+from src.presentation.caching import storefront_cache_namespace
 from src.presentation.dependencies import (
+    CacheDep,
     CurrentAdminDep,
     GetStoreSettingsUseCaseDep,
     ObjectStorageDep,
@@ -55,11 +57,13 @@ async def update_branding(
     current: CurrentAdminDep,
     store_settings_repository: StoreSettingsRepositoryDep,
     get_store_settings_uc: GetStoreSettingsUseCaseDep,
+    cache: CacheDep,
 ) -> StoreSettingsResponse:
     use_case = UpdateBrandingUseCase(store_settings_repository, get_store_settings_uc)
     settings = await use_case.execute(
         UpdateBrandingInput(tenant_id=current.tenant_id, **body.model_dump(exclude_unset=True))
     )
+    await cache.bump_version(storefront_cache_namespace(current.tenant_id))
     return StoreSettingsResponse.from_entity(settings)
 
 
@@ -70,6 +74,7 @@ async def select_theme(
     store_settings_repository: StoreSettingsRepositoryDep,
     theme_repository: ThemeRepositoryDep,
     get_store_settings_uc: GetStoreSettingsUseCaseDep,
+    cache: CacheDep,
 ) -> StoreSettingsResponse:
     use_case = SelectThemeUseCase(
         store_settings_repository, theme_repository, get_store_settings_uc
@@ -77,6 +82,7 @@ async def select_theme(
     settings = await use_case.execute(
         SelectThemeInput(tenant_id=current.tenant_id, theme_id=body.theme_id)
     )
+    await cache.bump_version(storefront_cache_namespace(current.tenant_id))
     return StoreSettingsResponse.from_entity(settings)
 
 
@@ -87,11 +93,13 @@ async def toggle_section(
     current: CurrentAdminDep,
     store_settings_repository: StoreSettingsRepositoryDep,
     get_store_settings_uc: GetStoreSettingsUseCaseDep,
+    cache: CacheDep,
 ) -> StoreSettingsResponse:
     use_case = ToggleThemeSectionUseCase(store_settings_repository, get_store_settings_uc)
     settings = await use_case.execute(
         ToggleThemeSectionInput(tenant_id=current.tenant_id, section=section, enabled=body.enabled)
     )
+    await cache.bump_version(storefront_cache_namespace(current.tenant_id))
     return StoreSettingsResponse.from_entity(settings)
 
 
@@ -101,6 +109,7 @@ async def upload_store_image(
     store_settings_repository: StoreSettingsRepositoryDep,
     get_store_settings_uc: GetStoreSettingsUseCaseDep,
     object_storage: ObjectStorageDep,
+    cache: CacheDep,
     kind: ImageKind = Form(...),
     file: UploadFile = File(...),
 ) -> StoreSettingsResponse:
@@ -117,4 +126,5 @@ async def upload_store_image(
             filename=file.filename or "upload",
         )
     )
+    await cache.bump_version(storefront_cache_namespace(current.tenant_id))
     return StoreSettingsResponse.from_entity(settings)

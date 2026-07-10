@@ -253,3 +253,23 @@ class FakeProductRepository:
     async def list(self, tenant_id: UUID, filters: ProductFilters) -> list[Product]:
         items = self._filtered(tenant_id, filters)
         return items[filters.offset : filters.offset + filters.limit]
+
+
+class FakeCache:
+    def __init__(self) -> None:
+        self._values: dict[str, str] = {}
+        self._versions: dict[str, int] = {}
+        self.get_calls = 0
+
+    async def get(self, key: str) -> str | None:
+        self.get_calls += 1
+        return self._values.get(key)
+
+    async def set(self, key: str, value: str, ttl_seconds: int) -> None:
+        self._values[key] = value
+
+    async def get_version(self, namespace: str) -> int:
+        return self._versions.get(namespace, 0)
+
+    async def bump_version(self, namespace: str) -> None:
+        self._versions[namespace] = self._versions.get(namespace, 0) + 1

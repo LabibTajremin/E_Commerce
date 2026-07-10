@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.dto.auth import AuthenticatedAdmin
+from src.application.interfaces.cache import Cache
 from src.application.interfaces.storage import ObjectStorage
 from src.application.interfaces.token_blacklist import TokenBlacklist
 from src.application.interfaces.unit_of_work import UnitOfWork
@@ -22,6 +23,7 @@ from src.domain.repositories.product_repository import ProductRepository
 from src.domain.repositories.store_settings_repository import StoreSettingsRepository
 from src.domain.repositories.tenant_repository import TenantRepository
 from src.domain.repositories.theme_repository import ThemeRepository
+from src.infrastructure.cache.redis_cache import RedisCache
 from src.infrastructure.cache.redis_client import get_redis
 from src.infrastructure.cache.redis_token_blacklist import RedisTokenBlacklist
 from src.infrastructure.db.repositories.sqlalchemy_admin_user_repository import (
@@ -197,6 +199,13 @@ def get_product_repository(session: DbSession) -> ProductRepository:
 
 
 ProductRepositoryDep = Annotated[ProductRepository, Depends(get_product_repository)]
+
+
+def get_cache() -> Cache:
+    return RedisCache(get_redis())
+
+
+CacheDep = Annotated[Cache, Depends(get_cache)]
 
 
 async def require_platform_admin(

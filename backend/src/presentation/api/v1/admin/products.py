@@ -29,7 +29,9 @@ from src.application.use_cases.products.upload_product_image import (
 )
 from src.domain.entities.product import ProductStatus
 from src.domain.repositories.product_repository import ProductFilters
+from src.presentation.caching import storefront_cache_namespace
 from src.presentation.dependencies import (
+    CacheDep,
     CategoryRepositoryDep,
     CurrentAdminDep,
     ObjectStorageDep,
@@ -54,11 +56,13 @@ async def create_product(
     current: CurrentAdminDep,
     product_repository: ProductRepositoryDep,
     category_repository: CategoryRepositoryDep,
+    cache: CacheDep,
 ) -> ProductResponse:
     use_case = CreateProductUseCase(product_repository, category_repository)
     product = await use_case.execute(
         CreateProductInput(tenant_id=current.tenant_id, **body.model_dump())
     )
+    await cache.bump_version(storefront_cache_namespace(current.tenant_id))
     return ProductResponse.from_entity(product)
 
 
@@ -107,6 +111,7 @@ async def update_product(
     body: ProductUpdateRequest,
     current: CurrentAdminDep,
     product_repository: ProductRepositoryDep,
+    cache: CacheDep,
 ) -> ProductResponse:
     use_case = UpdateProductUseCase(product_repository)
     product = await use_case.execute(
@@ -114,15 +119,20 @@ async def update_product(
             tenant_id=current.tenant_id, product_id=product_id, **body.model_dump()
         )
     )
+    await cache.bump_version(storefront_cache_namespace(current.tenant_id))
     return ProductResponse.from_entity(product)
 
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_product(
-    product_id: UUID, current: CurrentAdminDep, product_repository: ProductRepositoryDep
+    product_id: UUID,
+    current: CurrentAdminDep,
+    product_repository: ProductRepositoryDep,
+    cache: CacheDep,
 ) -> None:
     use_case = DeleteProductUseCase(product_repository)
     await use_case.execute(current.tenant_id, product_id)
+    await cache.bump_version(storefront_cache_namespace(current.tenant_id))
 
 
 @router.post("/bulk-status", response_model=dict[str, int])
@@ -130,6 +140,7 @@ async def bulk_update_status(
     body: BulkStatusUpdateRequest,
     current: CurrentAdminDep,
     product_repository: ProductRepositoryDep,
+    cache: CacheDep,
 ) -> dict[str, int]:
     use_case = BulkUpdateStatusUseCase(product_repository)
     updated = await use_case.execute(
@@ -137,6 +148,7 @@ async def bulk_update_status(
             tenant_id=current.tenant_id, product_ids=body.product_ids, status=body.status
         )
     )
+    await cache.bump_version(storefront_cache_namespace(current.tenant_id))
     return {"updated": updated}
 
 
@@ -146,11 +158,13 @@ async def adjust_stock(
     body: StockAdjustmentRequest,
     current: CurrentAdminDep,
     product_repository: ProductRepositoryDep,
+    cache: CacheDep,
 ) -> ProductResponse:
     use_case = AdjustStockUseCase(product_repository)
     product = await use_case.execute(
         AdjustStockInput(tenant_id=current.tenant_id, product_id=product_id, delta=body.delta)
     )
+    await cache.bump_version(storefront_cache_namespace(current.tenant_id))
     return ProductResponse.from_entity(product)
 
 
@@ -160,6 +174,7 @@ async def upload_product_image(
     current: CurrentAdminDep,
     product_repository: ProductRepositoryDep,
     object_storage: ObjectStorageDep,
+    cache: CacheDep,
     file: UploadFile = File(...),
 ) -> ProductResponse:
     use_case = UploadProductImageUseCase(product_repository, object_storage)
@@ -173,6 +188,7 @@ async def upload_product_image(
             filename=file.filename or "upload",
         )
     )
+    await cache.bump_version(storefront_cache_namespace(current.tenant_id))
     return ProductResponse.from_entity(product)
 
 
@@ -182,6 +198,7 @@ async def reorder_product_images(
     body: ReorderImagesRequest,
     current: CurrentAdminDep,
     product_repository: ProductRepositoryDep,
+    cache: CacheDep,
 ) -> ProductResponse:
     use_case = ReorderProductImagesUseCase(product_repository)
     product = await use_case.execute(
@@ -189,4 +206,5 @@ async def reorder_product_images(
             tenant_id=current.tenant_id, product_id=product_id, ordered_urls=body.ordered_urls
         )
     )
+    await cache.bump_version(storefront_cache_namespace(current.tenant_id))
     return ProductResponse.from_entity(product)
