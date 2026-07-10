@@ -1,27 +1,24 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import type { ApiClient } from "@/application/interfaces/ApiClient";
 import { useHealthCheck } from "@/application/use-cases/useHealthCheck";
 
-function fakeClient(response: unknown, shouldFail = false): ApiClient {
-  return {
-    get: async () => {
-      if (shouldFail) throw new Error("boom");
-      return response as never;
-    },
-    post: async () => response as never,
-  };
-}
+import { fakeApiClient } from "./fakeApiClient";
 
 describe("useHealthCheck", () => {
   it("returns ok when the API reports healthy", async () => {
-    const { result } = renderHook(() => useHealthCheck(fakeClient({ status: "ok" })));
+    const client = fakeApiClient({ get: async () => ({ status: "ok" }) as never });
+    const { result } = renderHook(() => useHealthCheck(client));
     await waitFor(() => expect(result.current).toBe("ok"));
   });
 
   it("returns error when the request fails", async () => {
-    const { result } = renderHook(() => useHealthCheck(fakeClient(null, true)));
+    const client = fakeApiClient({
+      get: async () => {
+        throw new Error("boom");
+      },
+    });
+    const { result } = renderHook(() => useHealthCheck(client));
     await waitFor(() => expect(result.current).toBe("error"));
   });
 });

@@ -1,0 +1,151 @@
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-8);
+  align-items: start;
+}
+
+.formColumn h2 {
+  font-size: 15px;
+  margin: var(--spacing-6) 0 var(--spacing-2);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  margin-bottom: var(--spacing-3);
+}
+
+.field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.field input[type="text"],
+.field input:not([type]) {
+  padding: var(--spacing-2) var(--spacing-3);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.colorRow {
+  display: flex;
+  gap: var(--spacing-4);
+}
+
+.error {
+  color: var(--color-danger);
+  font-size: 13px;
+}
+
+.save {
+  padding: var(--spacing-2) var(--spacing-4);
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.themeList {
+  display: flex;
+  gap: var(--spacing-2);
+  flex-wrap: wrap;
+}
+
+.theme,
+.themeActive {
+  padding: var(--spacing-2) var(--spacing-3);
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  font-size: 13px;
+}
+
+.themeActive {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: white;
+}
+
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+}
+
+.sectionToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  font-size: 14px;
+  text-transform: capitalize;
+}
+
+.previewColumn {
+  position: sticky;
+  top: var(--spacing-6);
+}
+
+.preview {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: white;
+  font-family: var(--preview-font, inherit);
+}
+
+.previewAnnouncement {
+  background: var(--preview-accent, #2563eb);
+  color: white;
+  text-align: center;
+  padding: var(--spacing-2);
+  font-size: 13px;
+}
+
+.previewHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.previewLogo {
+  height: 28px;
+  width: auto;
+}
+
+.previewStoreName {
+  font-weight: 700;
+  color: var(--preview-primary, #111827);
+}
+
+.previewHero {
+  padding: var(--spacing-8);
+  text-align: center;
+  background: var(--color-bg);
+}
+
+.previewCta {
+  padding: var(--spacing-2) var(--spacing-6);
+  background: var(--preview-primary, #111827);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.previewBanners {
+  display: flex;
+  gap: var(--spacing-2);
+  padding: var(--spacing-4);
+  overflow-x: auto;
+}
+
+.previewBanner {
+  height: 80px;
+  border-radius: 6px;
+}
