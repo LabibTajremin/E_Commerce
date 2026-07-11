@@ -1,0 +1,9 @@
+from typing import Protocol
+
+
+class RateLimiter(Protocol):
+    async def is_locked_out(self, key: str) -> bool: ...
+
+    async def record_failure(self, key: str) -> None: ...
+
+    async def reset(self, key: str) -> None: ...

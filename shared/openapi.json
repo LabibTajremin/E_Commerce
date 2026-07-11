@@ -494,6 +494,60 @@
         }
       }
     },
+    "/api/v1/platform/master-password-usages": {
+      "get": {
+        "tags": [
+          "platform:master-password-audit"
+        ],
+        "summary": "List Master Password Usages",
+        "operationId": "list_master_password_usages_api_v1_platform_master_password_usages_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MasterPasswordUsageResponse"
+                  },
+                  "title": "Response List Master Password Usages Api V1 Platform Master Password Usages Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/storefront/context": {
       "get": {
         "tags": [
@@ -3113,6 +3167,60 @@
         },
         "type": "object",
         "title": "LogoutRequest"
+      },
+      "MasterPasswordUsageResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "account_type": {
+            "type": "string",
+            "title": "Account Type"
+          },
+          "account_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Account Id"
+          },
+          "account_email": {
+            "type": "string",
+            "title": "Account Email"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          },
+          "ip_address": {
+            "type": "string",
+            "title": "Ip Address"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Occurred At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "account_type",
+          "account_id",
+          "account_email",
+          "tenant_id",
+          "ip_address",
+          "occurred_at"
+        ],
+        "title": "MasterPasswordUsageResponse"
       },
       "OrderLineItemResponse": {
         "properties": {

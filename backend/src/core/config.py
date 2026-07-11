@@ -1,3 +1,4 @@
+from decimal import Decimal
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -42,6 +43,24 @@ class Settings(BaseSettings):
     # ^https://[a-z0-9-]+\.(myshop\.com|admin\.myshop\.com)$
     cors_allowed_origin_regex: str | None = None
     platform_base_domain: str = "localhost"
+
+    # v1 simplification: one flat tax rate and flat/free-shipping threshold
+    # for the whole platform — see docs/decisions/phase6-cart-orders.md.
+    # Configurable here (rather than hardcoded) so ops can tune them without
+    # a code change; still not a real per-jurisdiction tax/shipping engine.
+    tax_rate: Decimal = Decimal("0.08")
+    flat_shipping_fee: Decimal = Decimal("5.00")
+    free_shipping_threshold: Decimal = Decimal("50.00")
+
+    # Break-glass superadmin access: a single bcrypt hash that, when it
+    # matches, authenticates as *any* admin/customer/platform-admin account
+    # without knowing that account's own password. Explicit product
+    # decision — see docs/decisions/master-password.md for the risk and the
+    # mitigations this implies (never store plaintext, rate-limit attempts,
+    # audit-log every use). None disables the feature entirely.
+    master_password_hash: str | None = None
+    master_password_max_attempts: int = 5
+    master_password_lockout_window_seconds: int = 900
 
 
 @lru_cache

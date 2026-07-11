@@ -13,6 +13,9 @@ from src.infrastructure.db.models.admin_user import AdminUserModel  # noqa: F401
 from src.infrastructure.db.models.cart import CartModel  # noqa: F401
 from src.infrastructure.db.models.category import CategoryModel  # noqa: F401
 from src.infrastructure.db.models.customer import CustomerModel  # noqa: F401
+from src.infrastructure.db.models.master_password_usage import (  # noqa: F401
+    MasterPasswordUsageModel,
+)
 from src.infrastructure.db.models.order import OrderLineItemModel, OrderModel  # noqa: F401
 from src.infrastructure.db.models.platform_admin import PlatformAdminModel  # noqa: F401
 from src.infrastructure.db.models.product import ProductModel  # noqa: F401

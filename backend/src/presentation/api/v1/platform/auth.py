@@ -11,8 +11,11 @@ from src.application.use_cases.auth.refresh_platform_admin_token import (
 )
 from src.presentation.dependencies import (
     BearerTokenDep,
+    ClientIpDep,
     CurrentPlatformAdminDep,
+    MasterPasswordGateDep,
     PlatformAdminRepositoryDep,
+    RateLimiterDep,
     TokenBlacklistDep,
 )
 from src.presentation.schemas.auth import (
@@ -27,11 +30,17 @@ router = APIRouter(prefix="/auth", tags=["platform:auth"])
 
 @router.post("/login", response_model=TokenPairResponse)
 async def login(
-    body: LoginRequest, platform_admin_repository: PlatformAdminRepositoryDep
+    body: LoginRequest,
+    platform_admin_repository: PlatformAdminRepositoryDep,
+    rate_limiter: RateLimiterDep,
+    master_password_gate: MasterPasswordGateDep,
+    client_ip: ClientIpDep,
 ) -> TokenPairResponse:
-    use_case = LoginPlatformAdminUseCase(platform_admin_repository)
+    use_case = LoginPlatformAdminUseCase(
+        platform_admin_repository, rate_limiter, master_password_gate
+    )
     tokens = await use_case.execute(
-        LoginPlatformAdminInput(email=body.email, password=body.password)
+        LoginPlatformAdminInput(email=body.email, password=body.password, ip_address=client_ip)
     )
     return TokenPairResponse(
         access_token=tokens.access_token, refresh_token=tokens.refresh_token

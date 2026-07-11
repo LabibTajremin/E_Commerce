@@ -28,6 +28,7 @@ that wrong."
 | 10 | [`phase10-storefront.md`](./phase10-storefront.md) | Server-side per-tenant theming, guest-cart-to-customer handoff |
 | — | [`deployment-hardening.md`](./deployment-hardening.md) | What broke turning this into a real Vercel deployment, and why |
 | — | [`deployment-log.md`](./deployment-log.md) | Append-only record of actual deployed URLs, by phase and git SHA |
+| — | [`master-password.md`](./master-password.md) | Break-glass superadmin login: the risk, why it was built anyway, and its mitigations |
 
 Phase 11 (custom domains) was scoped in the original spec as a stretch
 goal and was left unbuilt — see "What's out of scope" below.

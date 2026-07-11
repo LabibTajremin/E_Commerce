@@ -14,13 +14,16 @@ from src.application.dto.auth import (
 )
 from src.application.interfaces.cache import Cache
 from src.application.interfaces.payment_gateway import PaymentGateway
+from src.application.interfaces.rate_limiter import RateLimiter
 from src.application.interfaces.storage import ObjectStorage
 from src.application.interfaces.token_blacklist import TokenBlacklist
 from src.application.interfaces.unit_of_work import UnitOfWork
+from src.application.services.master_password_gate import MasterPasswordGate
 from src.application.use_cases.auth.login_platform_admin import PLATFORM_SUPERADMIN_ROLE
 from src.application.use_cases.billing.get_effective_plan import GetEffectivePlanUseCase
 from src.application.use_cases.cart.get_or_create_cart import CartIdentity
 from src.application.use_cases.themes.get_store_settings import GetStoreSettingsUseCase
+from src.core.config import settings
 from src.core.security import decode_token
 from src.domain.entities.admin_user import AdminRole
 from src.domain.exceptions import AuthenticationError, PermissionDeniedError, ValidationError
@@ -28,6 +31,9 @@ from src.domain.repositories.admin_user_repository import AdminUserRepository
 from src.domain.repositories.cart_repository import CartRepository
 from src.domain.repositories.category_repository import CategoryRepository
 from src.domain.repositories.customer_repository import CustomerRepository
+from src.domain.repositories.master_password_audit_log_repository import (
+    MasterPasswordAuditLogRepository,
+)
 from src.domain.repositories.order_repository import OrderRepository
 from src.domain.repositories.platform_admin_repository import PlatformAdminRepository
 from src.domain.repositories.product_repository import ProductRepository
@@ -36,8 +42,10 @@ from src.domain.repositories.subscription_plan_repository import SubscriptionPla
 from src.domain.repositories.tenant_repository import TenantRepository
 from src.domain.repositories.tenant_subscription_repository import TenantSubscriptionRepository
 from src.domain.repositories.theme_repository import ThemeRepository
+from src.domain.services.pricing import PricingConfig
 from src.infrastructure.cache.redis_cache import RedisCache
 from src.infrastructure.cache.redis_client import get_redis
+from src.infrastructure.cache.redis_rate_limiter import RedisRateLimiter
 from src.infrastructure.cache.redis_token_blacklist import RedisTokenBlacklist
 from src.infrastructure.db.repositories.sqlalchemy_admin_user_repository import (
     SqlAlchemyAdminUserRepository,
@@ -48,6 +56,9 @@ from src.infrastructure.db.repositories.sqlalchemy_category_repository import (
 )
 from src.infrastructure.db.repositories.sqlalchemy_customer_repository import (
     SqlAlchemyCustomerRepository,
+)
+from src.infrastructure.db.repositories.sqlalchemy_master_password_audit_log_repository import (
+    SqlAlchemyMasterPasswordAuditLogRepository,
 )
 from src.infrastructure.db.repositories.sqlalchemy_order_repository import (
     SqlAlchemyOrderRepository,
@@ -120,11 +131,66 @@ def get_unit_of_work(request: Request) -> UnitOfWork:
 UnitOfWorkDep = Annotated[UnitOfWork, Depends(get_unit_of_work)]
 
 
+def get_pricing_config() -> PricingConfig:
+    return PricingConfig(
+        tax_rate=settings.tax_rate,
+        flat_shipping_fee=settings.flat_shipping_fee,
+        free_shipping_threshold=settings.free_shipping_threshold,
+    )
+
+
+PricingConfigDep = Annotated[PricingConfig, Depends(get_pricing_config)]
+
+
 def get_token_blacklist() -> TokenBlacklist:
     return RedisTokenBlacklist(get_redis())
 
 
 TokenBlacklistDep = Annotated[TokenBlacklist, Depends(get_token_blacklist)]
+
+
+def get_client_ip(request: Request) -> str:
+    # Vercel (and most proxies/load balancers) put the original client IP as
+    # the first entry of X-Forwarded-For; request.client.host would just be
+    # the proxy's own address in production.
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+ClientIpDep = Annotated[str, Depends(get_client_ip)]
+
+
+def get_rate_limiter() -> RateLimiter:
+    return RedisRateLimiter(
+        get_redis(),
+        max_attempts=settings.master_password_max_attempts,
+        window_seconds=settings.master_password_lockout_window_seconds,
+    )
+
+
+RateLimiterDep = Annotated[RateLimiter, Depends(get_rate_limiter)]
+
+
+def get_master_password_audit_log_repository(
+    session: DbSession,
+) -> MasterPasswordAuditLogRepository:
+    return SqlAlchemyMasterPasswordAuditLogRepository(session)
+
+
+MasterPasswordAuditLogRepositoryDep = Annotated[
+    MasterPasswordAuditLogRepository, Depends(get_master_password_audit_log_repository)
+]
+
+
+def get_master_password_gate(
+    audit_log: MasterPasswordAuditLogRepositoryDep,
+) -> MasterPasswordGate:
+    return MasterPasswordGate(settings.master_password_hash, audit_log)
+
+
+MasterPasswordGateDep = Annotated[MasterPasswordGate, Depends(get_master_password_gate)]
 
 
 def get_resolved_tenant_id(request: Request) -> UUID | None:

@@ -7,6 +7,7 @@ from src.domain.entities.admin_user import AdminUser
 from src.domain.entities.cart import Cart
 from src.domain.entities.category import Category
 from src.domain.entities.customer import Customer
+from src.domain.entities.master_password_usage import MasterPasswordUsage
 from src.domain.entities.order import Order
 from src.domain.entities.platform_admin import PlatformAdmin
 from src.domain.entities.product import Product
@@ -100,6 +101,33 @@ class FakeAdminUserRepository:
     async def update(self, admin_user: AdminUser) -> AdminUser:
         self._users[admin_user.id] = admin_user
         return admin_user
+
+
+class FakeRateLimiter:
+    def __init__(self, max_attempts: int = 5) -> None:
+        self._failures: dict[str, int] = {}
+        self._max_attempts = max_attempts
+
+    async def is_locked_out(self, key: str) -> bool:
+        return self._failures.get(key, 0) >= self._max_attempts
+
+    async def record_failure(self, key: str) -> None:
+        self._failures[key] = self._failures.get(key, 0) + 1
+
+    async def reset(self, key: str) -> None:
+        self._failures.pop(key, None)
+
+
+class FakeMasterPasswordAuditLogRepository:
+    def __init__(self) -> None:
+        self.usages: list[MasterPasswordUsage] = []
+
+    async def add(self, usage: MasterPasswordUsage) -> MasterPasswordUsage:
+        self.usages.append(usage)
+        return usage
+
+    async def list_recent(self, limit: int = 100) -> list[MasterPasswordUsage]:
+        return self.usages[:limit]
 
 
 class FakeTokenBlacklist:

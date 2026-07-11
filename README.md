@@ -174,7 +174,7 @@ and 404s.
 ### Bootstrapping the database from scratch
 
 `alembic upgrade head` against an *empty* database is the entire "create
-the schema" step — all 11 migrations run in order and leave you with every
+the schema" step — all 10 migrations run in order and leave you with every
 table, index, and RLS policy, plus seeded starter themes and subscription
 plans. Nothing manual beyond having `DATABASE_URL` point at that empty
 database. From there:

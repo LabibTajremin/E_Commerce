@@ -148,6 +148,10 @@ S3_ENDPOINT_URL=...                        # R2 only
 S3_PUBLIC_BASE_URL=...                     # R2 only
 CORS_ALLOWED_ORIGIN_REGEX=^https://[a-z0-9-]+\.(myshop\.com|admin\.myshop\.com)$
 PLATFORM_BASE_DOMAIN=api.myshop.com
+TAX_RATE=0.08                              # flat-rate tax/shipping, see §10's decisions link
+FLAT_SHIPPING_FEE=5.00
+FREE_SHIPPING_THRESHOLD=50.00
+MASTER_PASSWORD_HASH=...                   # optional — see "Optional: enable the master password" below
 ```
 
 Deploy. Then, under the project's **Domains**, add both `api.myshop.com` and
@@ -175,12 +179,33 @@ python scripts/seed_demo_data.py --subdomain demo --owner-email owner@demo.examp
 
 `alembic upgrade head` is the entire "create the database from scratch"
 step — every table, index, and Postgres row-level-security policy across
-all 11 migrations runs in order from an empty database; nothing manual is
+all 10 migrations runs in order from an empty database; nothing manual is
 needed beyond having `DATABASE_URL` point at that empty database. The two
 scripts after it are optional but recommended for an MVP: the first gives
 you a superadmin login for `/api/v1/platform/*`; the second creates a demo
 tenant (`demo`) with two categories and six published products so there's
 something to click through immediately after deploying the frontends.
+
+### Optional: enable the master password
+
+Off by default. If you want a single break-glass credential that can log
+into any account (tenant admin, customer, or platform superadmin) — see
+[`docs/decisions/master-password.md`](./decisions/master-password.md) for
+what this is and the risk it carries before turning it on — generate a
+hash and add it to the backend's environment variables:
+
+```bash
+python scripts/hash_master_password.py
+# prompts for the password twice, prints:
+# MASTER_PASSWORD_HASH=$2b$12$...
+```
+
+Add that line (and, optionally, `MASTER_PASSWORD_MAX_ATTEMPTS` /
+`MASTER_PASSWORD_LOCKOUT_WINDOW_SECONDS` to change the default 5-attempts-
+per-15-minutes lockout) to the backend Vercel project's environment
+variables, then redeploy. Review who used it via
+`GET /api/v1/platform/master-password-usages` (superadmin bearer token
+required).
 
 ## 6. Configure the Stripe webhook
 

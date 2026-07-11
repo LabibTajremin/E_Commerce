@@ -6,14 +6,11 @@ import pytest
 from src.domain.entities.cart import Cart, CartLineItem
 from src.domain.entities.order import Order, OrderLineItem, OrderStatus
 from src.domain.exceptions import ValidationError
-from src.domain.services.pricing import (
-    FLAT_SHIPPING_FEE,
-    FREE_SHIPPING_THRESHOLD,
-    TAX_RATE,
-    calculate_totals,
-)
+from src.domain.services.pricing import PricingConfig, calculate_totals
 from src.domain.value_objects.address import Address
 from src.domain.value_objects.money import Money
+
+_DEFAULT_CONFIG = PricingConfig()
 
 
 def _line_item(price: str, qty: int) -> OrderLineItem:
@@ -39,13 +36,13 @@ def test_calculate_totals_applies_flat_shipping_below_threshold() -> None:
     totals = calculate_totals(items)
 
     assert totals.subtotal == Decimal("10.00")
-    assert totals.tax == (Decimal("10.00") * TAX_RATE).quantize(Decimal("0.01"))
-    assert totals.shipping == FLAT_SHIPPING_FEE
+    assert totals.tax == (Decimal("10.00") * _DEFAULT_CONFIG.tax_rate).quantize(Decimal("0.01"))
+    assert totals.shipping == _DEFAULT_CONFIG.flat_shipping_fee
     assert totals.total == totals.subtotal + totals.tax + totals.shipping
 
 
 def test_calculate_totals_free_shipping_at_threshold() -> None:
-    items = [_line_item(str(FREE_SHIPPING_THRESHOLD), 1)]
+    items = [_line_item(str(_DEFAULT_CONFIG.free_shipping_threshold), 1)]
 
     totals = calculate_totals(items)
 

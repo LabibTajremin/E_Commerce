@@ -4,7 +4,7 @@ from uuid import UUID
 from src.application.interfaces.unit_of_work import UnitOfWork
 from src.domain.entities.order import Order, OrderLineItem
 from src.domain.exceptions import EntityNotFoundError, OutOfStockError, ValidationError
-from src.domain.services.pricing import calculate_totals
+from src.domain.services.pricing import PricingConfig, calculate_totals
 from src.domain.value_objects.address import Address
 
 
@@ -16,8 +16,9 @@ class CheckoutInput:
 
 
 class CheckoutUseCase:
-    def __init__(self, uow: UnitOfWork) -> None:
+    def __init__(self, uow: UnitOfWork, pricing_config: PricingConfig | None = None) -> None:
         self._uow = uow
+        self._pricing_config = pricing_config or PricingConfig()
 
     async def execute(self, data: CheckoutInput) -> Order:
         async with self._uow as uow:
@@ -49,7 +50,7 @@ class CheckoutUseCase:
                     )
                 )
 
-            totals = calculate_totals(order_line_items)
+            totals = calculate_totals(order_line_items, self._pricing_config)
             order = Order(
                 tenant_id=data.tenant_id,
                 customer_id=data.customer_id,

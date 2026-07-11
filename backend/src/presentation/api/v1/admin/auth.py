@@ -6,7 +6,10 @@ from src.application.use_cases.auth.refresh_token import RefreshTokenInput, Refr
 from src.presentation.dependencies import (
     AdminUserRepositoryDep,
     BearerTokenDep,
+    ClientIpDep,
     CurrentAdminDep,
+    MasterPasswordGateDep,
+    RateLimiterDep,
     ResolvedTenantIdDep,
     TokenBlacklistDep,
 )
@@ -25,12 +28,17 @@ async def login(
     body: LoginRequest,
     tenant_id: ResolvedTenantIdDep,
     admin_user_repository: AdminUserRepositoryDep,
+    rate_limiter: RateLimiterDep,
+    master_password_gate: MasterPasswordGateDep,
+    client_ip: ClientIpDep,
 ) -> TokenPairResponse:
     if tenant_id is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found")
-    use_case = LoginUseCase(admin_user_repository)
+    use_case = LoginUseCase(admin_user_repository, rate_limiter, master_password_gate)
     tokens = await use_case.execute(
-        LoginInput(tenant_id=tenant_id, email=body.email, password=body.password)
+        LoginInput(
+            tenant_id=tenant_id, email=body.email, password=body.password, ip_address=client_ip
+        )
     )
     return TokenPairResponse(
         access_token=tokens.access_token, refresh_token=tokens.refresh_token
