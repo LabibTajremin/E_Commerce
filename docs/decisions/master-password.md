@@ -21,12 +21,26 @@ building it this way at all.
 Built exactly what was asked, with three mitigations that were the
 explicit condition for building it:
 
-1. **Never store the plaintext password.** `MASTER_PASSWORD_HASH` in
-   `Settings` holds a bcrypt hash (`scripts/hash_master_password.py`
-   generates it); `MasterPasswordGate.matches()` calls the same
-   `verify_password()` every other password check in this codebase uses.
-   Leaving `MASTER_PASSWORD_HASH` unset disables the feature entirely —
-   that's the default.
+1. **Never store the plaintext password.** `MASTER_PASSWORD_HASH` is a
+   bcrypt hash (`scripts/hash_master_password.py` generates it);
+   `MasterPasswordGate.matches()` calls the same `verify_password()` every
+   other password check in this codebase uses. Leaving it `None` disables
+   the feature entirely — that's the default.
+
+   It's a **hardcoded constant in `src/core/master_password.py`, not an
+   env var** — a deliberate change from the first version of this
+   feature, made per explicit follow-up direction after the initial
+   config-based version was built. Rotating it is then always an explicit
+   code change + redeploy (no config edit anyone with deploy-dashboard
+   access can make silently), and it can't leak via an env-var
+   dump/log/dashboard the way a `Settings` field can. The tradeoff runs
+   the other way from every other secret in this codebase: it lives in
+   git, and in git history, once set — the usual reason secrets go in env
+   vars instead. Given the master password already sits outside this
+   codebase's normal "every credential is one account's blast radius"
+   model, keeping the *hash* in source isn't a meaningfully bigger
+   exposure than the feature already is, and the explicit-rotation
+   property was judged worth it.
 2. **Rate-limit failed logins by IP, platform-wide.** `RedisRateLimiter`
    (a fixed-window failure counter, mirroring the existing
    `RedisTokenBlacklist` pattern) locks out an IP after
@@ -88,8 +102,9 @@ attacked and guarantee it's noticed when used.
 This remains categorically different from every other credential in this
 system. Every other password authenticates exactly one account; this one
 authenticates all of them, forever, until the operator rotates
-`MASTER_PASSWORD_HASH` and redeploys — there's no schema for scoping it to
-one tenant, one time window, or one incident. Treat it accordingly:
-restrict who has the plaintext, rotate it if anyone who had access leaves,
-and review `GET /api/v1/platform/master-password-usages` periodically
-rather than only after an incident is already suspected.
+`MASTER_PASSWORD_HASH` in `src/core/master_password.py` and redeploys —
+there's no schema for scoping it to one tenant, one time window, or one
+incident. Treat it accordingly: restrict who has the plaintext and who has
+merge access to the file, rotate it if anyone who had either leaves, and
+review `GET /api/v1/platform/master-password-usages` periodically rather
+than only after an incident is already suspected.

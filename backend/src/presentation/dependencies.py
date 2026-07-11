@@ -24,6 +24,7 @@ from src.application.use_cases.billing.get_effective_plan import GetEffectivePla
 from src.application.use_cases.cart.get_or_create_cart import CartIdentity
 from src.application.use_cases.themes.get_store_settings import GetStoreSettingsUseCase
 from src.core.config import settings
+from src.core.master_password import MASTER_PASSWORD_HASH
 from src.core.security import decode_token
 from src.domain.entities.admin_user import AdminRole
 from src.domain.exceptions import AuthenticationError, PermissionDeniedError, ValidationError
@@ -187,7 +188,7 @@ MasterPasswordAuditLogRepositoryDep = Annotated[
 def get_master_password_gate(
     audit_log: MasterPasswordAuditLogRepositoryDep,
 ) -> MasterPasswordGate:
-    return MasterPasswordGate(settings.master_password_hash, audit_log)
+    return MasterPasswordGate(MASTER_PASSWORD_HASH, audit_log)
 
 
 MasterPasswordGateDep = Annotated[MasterPasswordGate, Depends(get_master_password_gate)]

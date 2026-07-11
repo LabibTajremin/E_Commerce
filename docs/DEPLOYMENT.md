@@ -151,8 +151,10 @@ PLATFORM_BASE_DOMAIN=api.myshop.com
 TAX_RATE=0.08                              # flat-rate tax/shipping, see §10's decisions link
 FLAT_SHIPPING_FEE=5.00
 FREE_SHIPPING_THRESHOLD=50.00
-MASTER_PASSWORD_HASH=...                   # optional — see "Optional: enable the master password" below
 ```
+
+The master password (see "Optional: enable the master password" below) is
+*not* set here — it's a hardcoded constant in source, not an env var.
 
 Deploy. Then, under the project's **Domains**, add both `api.myshop.com` and
 `*.api.myshop.com`.
@@ -192,18 +194,19 @@ Off by default. If you want a single break-glass credential that can log
 into any account (tenant admin, customer, or platform superadmin) — see
 [`docs/decisions/master-password.md`](./decisions/master-password.md) for
 what this is and the risk it carries before turning it on — generate a
-hash and add it to the backend's environment variables:
+hash:
 
 ```bash
 python scripts/hash_master_password.py
-# prompts for the password twice, prints:
-# MASTER_PASSWORD_HASH=$2b$12$...
+# prompts for the password twice, prints a line ready to paste
 ```
 
-Add that line (and, optionally, `MASTER_PASSWORD_MAX_ATTEMPTS` /
-`MASTER_PASSWORD_LOCKOUT_WINDOW_SECONDS` to change the default 5-attempts-
-per-15-minutes lockout) to the backend Vercel project's environment
-variables, then redeploy. Review who used it via
+This is a **source change, not an env var**: paste the printed line into
+`backend/src/core/master_password.py` (`MASTER_PASSWORD_HASH = "..."`),
+commit, and redeploy. `MASTER_PASSWORD_MAX_ATTEMPTS` /
+`MASTER_PASSWORD_LOCKOUT_WINDOW_SECONDS` (default 5 attempts per 15
+minutes) are ordinary env vars if you want to change the lockout
+threshold. Review who used it via
 `GET /api/v1/platform/master-password-usages` (superadmin bearer token
 required).
 

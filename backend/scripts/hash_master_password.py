@@ -1,9 +1,10 @@
-"""Generate the bcrypt hash to put in the MASTER_PASSWORD_HASH env var.
+"""Generate the bcrypt hash to paste into src/core/master_password.py.
 
 The master password itself is never stored anywhere — only this hash is,
-and only the hash is what the app checks logins against. See
+and only the hash is what the app checks logins against. It's a hardcoded
+constant rather than an env var by design; see
 docs/decisions/master-password.md for what this feature is and why it
-carries the mitigations it does.
+carries the mitigations (and this storage choice) it does.
 
     python scripts/hash_master_password.py
 
@@ -24,4 +25,5 @@ if __name__ == "__main__":
     if len(password) < 12:
         raise SystemExit("Use at least 12 characters — this password can log into any account.")
 
-    print("\nMASTER_PASSWORD_HASH=" + hash_password(password))
+    print("\nPaste into src/core/master_password.py:")
+    print(f'MASTER_PASSWORD_HASH: str | None = "{hash_password(password)}"')

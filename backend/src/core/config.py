@@ -52,13 +52,10 @@ class Settings(BaseSettings):
     flat_shipping_fee: Decimal = Decimal("5.00")
     free_shipping_threshold: Decimal = Decimal("50.00")
 
-    # Break-glass superadmin access: a single bcrypt hash that, when it
-    # matches, authenticates as *any* admin/customer/platform-admin account
-    # without knowing that account's own password. Explicit product
-    # decision — see docs/decisions/master-password.md for the risk and the
-    # mitigations this implies (never store plaintext, rate-limit attempts,
-    # audit-log every use). None disables the feature entirely.
-    master_password_hash: str | None = None
+    # Rate-limit tuning for the break-glass master password (the hash itself
+    # is a hardcoded constant in src/core/master_password.py, not config —
+    # see docs/decisions/master-password.md). These two aren't secrets, so
+    # they stay ordinary config.
     master_password_max_attempts: int = 5
     master_password_lockout_window_seconds: int = 900
 
