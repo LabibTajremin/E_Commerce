@@ -27,4 +27,23 @@ describe("resolveApiBaseUrl", () => {
   it("splices the tenant label through even when the API lives on an unrelated domain (production)", () => {
     expect(resolveApiBaseUrl("acme.yourplatform.com")).toBe("http://acme.localhost:8000");
   });
+
+  it("returns the API URL unchanged in single-tenant mode, even with a tenant-shaped host", async () => {
+    vi.resetModules();
+    vi.doMock("@/infrastructure/config/env", () => ({
+      env: {
+        NEXT_PUBLIC_API_BASE_URL: "http://localhost:8000",
+        NEXT_PUBLIC_SINGLE_TENANT_MODE: true,
+      },
+    }));
+
+    const { resolveApiBaseUrl: resolveInSingleTenantMode } = await import(
+      "@/infrastructure/api/apiBaseUrl"
+    );
+
+    expect(resolveInSingleTenantMode("acme.yourplatform.com")).toBe("http://localhost:8000");
+
+    vi.doUnmock("@/infrastructure/config/env");
+    vi.resetModules();
+  });
 });

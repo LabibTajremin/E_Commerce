@@ -22,6 +22,14 @@ export function resolveApiBaseUrl(host?: string): string {
   const apiUrl = new URL(env.NEXT_PUBLIC_API_BASE_URL);
   const pageHost = host ?? (typeof window !== "undefined" ? window.location.hostname : null);
 
+  // No wildcarded custom domain (e.g. bare Vercel *.vercel.app deploys) —
+  // there's no tenant subdomain to splice, so talk to the API origin as
+  // configured. The single deployed tenant is resolved on the backend by
+  // its own Host header instead (see docs/DEPLOYMENT.md).
+  if (env.NEXT_PUBLIC_SINGLE_TENANT_MODE) {
+    return env.NEXT_PUBLIC_API_BASE_URL;
+  }
+
   if (!pageHost || pageHost === apiUrl.hostname) {
     return env.NEXT_PUBLIC_API_BASE_URL;
   }
