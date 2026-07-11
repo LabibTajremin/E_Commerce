@@ -23,9 +23,59 @@ admin-dashboard/   Next.js app tenant owners use to run their store
 storefront/        Next.js app end customers shop on (one deployment, every tenant)
 shared/            Cross-app TypeScript types (not yet wired as an npm workspace —
                    see docs/decisions/README.md)
+docs/ARCHITECTURE.md  Diagrams: deployment topology, request flow, code layout, data model
 docs/decisions/    ADRs — what was built, why, and what got fixed along the way
 docs/DEPLOYMENT.md Step-by-step guide to a real (small-scale) Vercel deployment
 ```
+
+## Architecture
+
+Three separately-deployed apps sharing one Postgres/Redis/object-storage
+backend, all multi-tenant by subdomain:
+
+```mermaid
+flowchart TB
+    subgraph Browser["Browser"]
+        Owner["Tenant owner"]
+        Shopper["Customer"]
+    end
+
+    subgraph Vercel["Vercel"]
+        AD["admin-dashboard
+Next.js
+*.admin.myshop.com"]
+        SF["storefront
+Next.js
+*.myshop.com"]
+        API["backend
+FastAPI, single function
+*.api.myshop.com"]
+    end
+
+    subgraph External["External services"]
+        PG[("Postgres
+Neon, pooled")]
+        RD[("Redis
+Upstash")]
+        S3[("Object storage
+S3 / R2")]
+        Stripe["Stripe"]
+    end
+
+    Owner -->|"acme.admin.myshop.com"| AD
+    Shopper -->|"acme.myshop.com"| SF
+    AD -->|"acme.api.myshop.com"| API
+    SF -->|"acme.api.myshop.com"| API
+    API --> PG
+    API --> RD
+    API --> S3
+    API <-->|"checkout + webhooks"| Stripe
+```
+
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the rest: how a
+request finds its tenant, the backend's Clean Architecture code layout,
+the core domain model, and the checkout/payment flow — five diagrams
+total, each rendered from source and checked before being committed.
 
 ## How multi-tenancy works
 
@@ -40,6 +90,30 @@ scoped to a single tenant by nature); see
 [`phase1-tenants.md`](docs/decisions/phase1-tenants.md) and
 [`phase7-payments.md`](docs/decisions/phase7-payments.md) for exactly how
 each of those gets a tenant re-attached where it still needs one.
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant App as Frontend
+    participant MW as TenantResolverMiddleware
+    participant DB as Postgres
+
+    Browser->>App: GET https://acme.myshop.com/products
+    App->>MW: GET https://acme.api.myshop.com/... Host header carries acme
+    MW->>DB: SELECT tenant WHERE subdomain = acme
+    alt tenant found and active
+        DB-->>MW: tenant row
+        MW->>MW: request.state.tenant_id = tenant.id
+        MW->>DB: SET LOCAL app.tenant_id = tenant uuid, then run the query
+        Note over DB: RLS restricts every query to that tenant's rows
+        DB-->>MW: tenant-scoped result
+        MW-->>App: 200 OK
+    else no match or suspended
+        DB-->>MW: no row
+        MW-->>App: 404 Store not found
+    end
+    App-->>Browser: response
+```
 
 ## Tech stack
 
