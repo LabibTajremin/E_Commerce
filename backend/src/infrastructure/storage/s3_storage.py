@@ -18,5 +18,11 @@ class S3ObjectStorage:
             await client.put_object(
                 Bucket=settings.s3_bucket, Key=key, Body=content, ContentType=content_type
             )
+
+        if settings.s3_public_base_url is not None:
+            # Already bucket-scoped (an R2.dev subdomain or a custom domain
+            # mapped to one bucket) — no bucket segment in the path.
+            return f"{settings.s3_public_base_url.rstrip('/')}/{key}"
+
         base = settings.s3_endpoint_url or f"https://{settings.s3_bucket}.s3.amazonaws.com"
         return f"{base.rstrip('/')}/{settings.s3_bucket}/{key}"

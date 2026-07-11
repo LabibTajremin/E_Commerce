@@ -16,13 +16,18 @@ describe("resolveApiBaseUrl", () => {
     expect(resolveApiBaseUrl()).toBe("http://localhost:8000");
   });
 
-  it("splices the page's subdomain onto the configured API host", () => {
+  it("splices the page's leftmost label onto the configured API host (dev: same base domain)", () => {
     setHostname("acme.localhost");
     expect(resolveApiBaseUrl()).toBe("http://acme.localhost:8000");
   });
 
-  it("leaves the API URL unchanged for an unrelated host", () => {
-    setHostname("example.com");
-    expect(resolveApiBaseUrl()).toBe("http://localhost:8000");
+  it("splices the tenant label through even when the API lives on an unrelated domain (production)", () => {
+    setHostname("acme.admin.yourplatform.com");
+    expect(resolveApiBaseUrl()).toBe("http://acme.localhost:8000");
+  });
+
+  it("prefers an explicitly passed host over window.location", () => {
+    setHostname("should-be-ignored.localhost");
+    expect(resolveApiBaseUrl("acme.localhost")).toBe("http://acme.localhost:8000");
   });
 });

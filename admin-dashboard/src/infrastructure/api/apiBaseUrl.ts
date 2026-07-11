@@ -3,24 +3,27 @@ import { env } from "@/infrastructure/config/env";
 /**
  * The backend resolves the tenant on every non-exempt request (including
  * admin login) from the Host header's subdomain — there is no tenant
- * fallback. NEXT_PUBLIC_API_BASE_URL is the platform's bare API origin
- * (e.g. http://localhost:8000); if this dashboard is itself being served
- * from a tenant subdomain (e.g. acme.localhost:3000, sharing the same base
- * domain as the API, differing only by port), that subdomain is spliced
- * onto the configured API host so requests land on the right tenant.
+ * fallback. This dashboard is always deployed such that the tenant is the
+ * leftmost label of its own hostname (acme.localhost:3000 in dev,
+ * acme.admin.yourplatform.com in production), regardless of what domain
+ * the API itself lives on — so that label is spliced onto the *configured*
+ * API host to build the per-tenant API origin.
+ *
+ * This deliberately does not require the dashboard's and API's hostnames to
+ * share a suffix: production topologies commonly put the API on its own
+ * wildcarded domain (e.g. *.api.yourplatform.com) that isn't a suffix of
+ * the dashboard's own domain, and a naive suffix check would silently fail
+ * to thread the tenant through at all in that case.
  */
-export function resolveApiBaseUrl(): string {
-  if (typeof window === "undefined") return env.NEXT_PUBLIC_API_BASE_URL;
-
+export function resolveApiBaseUrl(host?: string): string {
   const apiUrl = new URL(env.NEXT_PUBLIC_API_BASE_URL);
-  const pageHost = window.location.hostname;
-  const apiHost = apiUrl.hostname;
+  const pageHost = host ?? (typeof window !== "undefined" ? window.location.hostname : null);
 
-  if (pageHost === apiHost || !pageHost.endsWith(`.${apiHost}`)) {
+  if (!pageHost || pageHost === apiUrl.hostname) {
     return env.NEXT_PUBLIC_API_BASE_URL;
   }
 
-  const subdomain = pageHost.slice(0, -(apiHost.length + 1));
-  apiUrl.hostname = `${subdomain}.${apiHost}`;
+  const subdomain = pageHost.split(".")[0];
+  apiUrl.hostname = `${subdomain}.${apiUrl.hostname}`;
   return apiUrl.origin;
 }

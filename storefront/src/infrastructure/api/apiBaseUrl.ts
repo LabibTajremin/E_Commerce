@@ -1,24 +1,32 @@
 import { env } from "@/infrastructure/config/env";
 
 /**
- * Same reasoning as the admin dashboard's identically-named helper: the
- * backend's TenantResolverMiddleware resolves the tenant from the Host
- * header on every storefront request, so a single static API origin would
- * only ever serve one hardcoded tenant. This splices the current page's
- * subdomain onto the configured API host (both sharing a base domain,
- * differing only by port in dev).
+ * The backend resolves the tenant on every non-exempt request from the Host
+ * header's subdomain — there is no tenant fallback. This storefront is
+ * always deployed such that the tenant is the leftmost label of its own
+ * hostname (acme.localhost:3001 in dev, acme.yourplatform.com in
+ * production), regardless of what domain the API itself lives on — so that
+ * label is spliced onto the *configured* API host to build the per-tenant
+ * API origin.
+ *
+ * This deliberately does not require the storefront's and API's hostnames
+ * to share a suffix: production topologies commonly put the API on its own
+ * wildcarded domain (e.g. *.api.yourplatform.com) that isn't a suffix of
+ * the storefront's own domain, and a naive suffix check would silently
+ * fail to thread the tenant through at all in that case.
+ *
+ * `host` is passed explicitly by serverApi.ts (there's no `window` during
+ * SSR); client components fall back to window.location.hostname.
  */
 export function resolveApiBaseUrl(host?: string): string {
   const apiUrl = new URL(env.NEXT_PUBLIC_API_BASE_URL);
   const pageHost = host ?? (typeof window !== "undefined" ? window.location.hostname : null);
-  if (!pageHost) return env.NEXT_PUBLIC_API_BASE_URL;
 
-  const apiHost = apiUrl.hostname;
-  if (pageHost === apiHost || !pageHost.endsWith(`.${apiHost}`)) {
+  if (!pageHost || pageHost === apiUrl.hostname) {
     return env.NEXT_PUBLIC_API_BASE_URL;
   }
 
-  const subdomain = pageHost.slice(0, -(apiHost.length + 1));
-  apiUrl.hostname = `${subdomain}.${apiHost}`;
+  const subdomain = pageHost.split(".")[0];
+  apiUrl.hostname = `${subdomain}.${apiUrl.hostname}`;
   return apiUrl.origin;
 }

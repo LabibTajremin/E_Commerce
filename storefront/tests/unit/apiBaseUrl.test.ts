@@ -24,7 +24,7 @@ describe("resolveApiBaseUrl", () => {
     expect(resolveApiBaseUrl("localhost")).toBe("http://localhost:8000");
   });
 
-  it("leaves the API URL unchanged for an unrelated host", () => {
-    expect(resolveApiBaseUrl("example.com")).toBe("http://localhost:8000");
+  it("splices the tenant label through even when the API lives on an unrelated domain (production)", () => {
+    expect(resolveApiBaseUrl("acme.yourplatform.com")).toBe("http://acme.localhost:8000");
   });
 });
