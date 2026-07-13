@@ -48,6 +48,7 @@ from src.infrastructure.cache.redis_cache import RedisCache
 from src.infrastructure.cache.redis_client import get_redis
 from src.infrastructure.cache.redis_rate_limiter import RedisRateLimiter
 from src.infrastructure.cache.redis_token_blacklist import RedisTokenBlacklist
+from src.infrastructure.db import session as db_session_module
 from src.infrastructure.db.repositories.sqlalchemy_admin_user_repository import (
     SqlAlchemyAdminUserRepository,
 )
@@ -85,7 +86,6 @@ from src.infrastructure.db.repositories.sqlalchemy_tenant_subscription_repositor
 from src.infrastructure.db.repositories.sqlalchemy_theme_repository import (
     SqlAlchemyThemeRepository,
 )
-from src.infrastructure.db.session import async_session_factory
 from src.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from src.infrastructure.payments.stripe_gateway import StripePaymentGateway
 from src.infrastructure.storage.s3_storage import S3ObjectStorage
@@ -94,7 +94,9 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 
 
 async def get_db_session(request: Request) -> AsyncIterator[AsyncSession]:
-    async with async_session_factory() as session:
+    # Module-qualified access, not a frozen `from ... import async_session_factory`
+    # — see the identical note in unit_of_work.py.
+    async with db_session_module.async_session_factory() as session:
         tenant_id = getattr(request.state, "tenant_id", None)
         try:
             if tenant_id is not None:

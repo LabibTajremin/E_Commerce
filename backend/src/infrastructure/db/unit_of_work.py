@@ -15,6 +15,7 @@ from src.domain.repositories.store_settings_repository import StoreSettingsRepos
 from src.domain.repositories.subscription_plan_repository import SubscriptionPlanRepository
 from src.domain.repositories.tenant_repository import TenantRepository
 from src.domain.repositories.tenant_subscription_repository import TenantSubscriptionRepository
+from src.infrastructure.db import session as db_session_module
 from src.infrastructure.db.repositories.sqlalchemy_admin_user_repository import (
     SqlAlchemyAdminUserRepository,
 )
@@ -43,7 +44,6 @@ from src.infrastructure.db.repositories.sqlalchemy_tenant_subscription_repositor
 from src.infrastructure.db.repositories.sqlalchemy_webhook_event_store import (
     SqlAlchemyWebhookEventStore,
 )
-from src.infrastructure.db.session import async_session_factory
 
 
 class SqlAlchemyUnitOfWork:
@@ -52,7 +52,13 @@ class SqlAlchemyUnitOfWork:
         self.session: AsyncSession | None = None
 
     async def __aenter__(self) -> Self:
-        self.session = async_session_factory()
+        # Module-qualified access (not `from ... import async_session_factory`)
+        # deliberately, so that tests which rebind
+        # db_session_module.async_session_factory to point at a throwaway
+        # testcontainers Postgres after this module was first imported (e2e
+        # tests' `app` fixture) actually take effect — a plain name import
+        # would freeze the reference to whatever it was at import time.
+        self.session = db_session_module.async_session_factory()
         await self.session.begin()
         if self._tenant_id is not None:
             # SET has no bind-parameter support over the wire protocol; tenant_id is a

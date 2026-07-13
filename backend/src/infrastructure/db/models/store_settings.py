@@ -10,6 +10,10 @@ from src.infrastructure.db.session import Base
 
 class StoreSettingsModel(Base):
     __tablename__ = "store_settings"
+    # See the identical note in models/cart.py: onupdate=func.now() with no
+    # client-side default needs eager_defaults, or a post-UPDATE attribute
+    # read of updated_at raises MissingGreenlet under the async ORM.
+    __mapper_args__ = {"eager_defaults": True}
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()

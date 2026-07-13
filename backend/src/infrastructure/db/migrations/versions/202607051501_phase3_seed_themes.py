@@ -4,7 +4,6 @@ Revision ID: 202607051501
 Revises: 202607051500
 Create Date: 2026-07-05
 """
-import json
 import uuid
 
 import sqlalchemy as sa
@@ -62,10 +61,12 @@ _STARTER_THEMES = [
 
 
 def upgrade() -> None:
-    op.bulk_insert(
-        _THEMES_TABLE,
-        [{**t, "sections": json.dumps(t["sections"])} for t in _STARTER_THEMES],
-    )
+    # sections is a pg.JSON column — op.bulk_insert already runs values
+    # through that type's bind processor (which itself calls json.dumps()),
+    # so passing an already-json.dumps()'d string here double-encodes it:
+    # reading it back gives a JSON string containing another JSON string,
+    # not a dict.
+    op.bulk_insert(_THEMES_TABLE, _STARTER_THEMES)
 
 
 def downgrade() -> None:

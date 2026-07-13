@@ -10,6 +10,13 @@ from src.infrastructure.db.session import Base
 
 class CartModel(Base):
     __tablename__ = "carts"
+    # updated_at has no client-side default, only onupdate=func.now() — without
+    # eager_defaults, an UPDATE flush leaves it expired rather than refreshed
+    # via RETURNING, and the plain attribute read in _to_entity() then tries
+    # an implicit lazy-load, which the async ORM can't do outside its
+    # greenlet bridge (raises MissingGreenlet). INSERT isn't affected since
+    # Postgres RETURNING already populates it there.
+    __mapper_args__ = {"eager_defaults": True}
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
