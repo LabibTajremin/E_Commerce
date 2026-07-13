@@ -4,8 +4,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from testcontainers.core.container import DockerContainer
-from testcontainers.core.waiting_utils import wait_for_logs
+from testcontainers.minio import MinioContainer
 from testcontainers.postgres import PostgresContainer
 from testcontainers.redis import RedisContainer
 
@@ -46,23 +45,20 @@ def redis_url(redis_container: RedisContainer) -> str:
 
 @pytest.fixture(scope="session")
 def minio_container():
-    container = (
-        DockerContainer("minio/minio:latest")
-        .with_env("MINIO_ROOT_USER", "minioadmin")
-        .with_env("MINIO_ROOT_PASSWORD", "minioadmin")
-        .with_exposed_ports(9000)
-        .with_command("server /data")
-    )
-    with container:
-        wait_for_logs(container, "1 Online")
+    # MinioContainer's start() runs an HTTP healthcheck against
+    # /minio/health/live rather than string-matching startup logs — the
+    # previous hand-rolled DockerContainer + wait_for_logs(..., "1 Online")
+    # never worked at all, since "N Online, M Offline" is a multi-node
+    # erasure-coding status line that a standalone single-drive MinIO
+    # server (`server /data`) never prints, so it always ran out the full
+    # 120s wait_for_logs timeout regardless of environment.
+    with MinioContainer(access_key="minioadmin", secret_key="minioadmin") as container:
         yield container
 
 
 @pytest.fixture(scope="session")
-def minio_endpoint_url(minio_container: DockerContainer) -> str:
-    host = minio_container.get_container_host_ip()
-    port = minio_container.get_exposed_port(9000)
-    return f"http://{host}:{port}"
+def minio_endpoint_url(minio_container: MinioContainer) -> str:
+    return f"http://{minio_container.get_config()['endpoint']}"
 
 
 @pytest.fixture(scope="session")

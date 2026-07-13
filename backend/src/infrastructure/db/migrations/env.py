@@ -28,7 +28,13 @@ from src.infrastructure.db.models.webhook_event import ProcessedWebhookEventMode
 from src.infrastructure.db.session import Base
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# Respect a URL the caller already configured (e.g. tests pointing this at a
+# throwaway testcontainers Postgres via alembic_cfg.set_main_option(...)
+# before calling command.upgrade()) — only fall back to the process-wide
+# Settings singleton, which is frozen at import time and would otherwise
+# silently clobber a deliberately-different URL, when nothing was set.
+if not config.get_main_option("sqlalchemy.url"):
+    config.set_main_option("sqlalchemy.url", settings.database_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -38,7 +44,7 @@ target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:
     context.configure(
-        url=settings.database_url,
+        url=config.get_main_option("sqlalchemy.url"),
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
