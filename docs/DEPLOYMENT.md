@@ -70,7 +70,17 @@ services. Recommended picks for MVP scale (all have usable free tiers):
    connections. Direct (non-pooled) connections will work for occasional
    scripts (migrations, seeding) but shouldn't be what the deployed app uses.
 3. This is `DATABASE_URL`, reformatted for SQLAlchemy's async driver:
-   `postgresql+asyncpg://<user>:<password>@<pooled-host>/<db>?sslmode=require`
+   `postgresql+asyncpg://<user>:<password>@<pooled-host>/<db>?ssl=require`
+
+   > Use `ssl=require`, not `sslmode=require` — `sslmode` is a psycopg2/libpq
+   > param name. asyncpg's own driver forwards unrecognized query params to
+   > its `connect()` call unmodified, so `sslmode` reaches it verbatim and
+   > raises `TypeError: connect() got an unexpected keyword argument
+   > 'sslmode'` at connection time (not at parse time — the app boots fine
+   > and only fails on the first real DB query, which makes it easy to miss
+   > until the first request comes in). Drop `channel_binding` from Neon's
+   > copied connection string too; asyncpg doesn't understand that one
+   > either.
 
    > The app disables asyncpg's server-side prepared-statement cache
    > (`connect_args={"statement_cache_size": 0}` in
