@@ -1,0 +1,80 @@
+import os
+
+import pytest
+from alembic import command
+from alembic.config import Config
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from testcontainers.minio import MinioContainer
+from testcontainers.postgres import PostgresContainer
+from testcontainers.redis import RedisContainer
+
+os.environ.setdefault("JWT_SECRET", "test-secret")
+os.environ.setdefault("STRIPE_SECRET_KEY", "sk_test_fake")
+os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "whsec_fake")
+os.environ.setdefault("S3_BUCKET", "test-bucket")
+os.environ.setdefault("S3_ACCESS_KEY", "test")
+os.environ.setdefault("S3_SECRET_KEY", "test")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/test")
+
+
+@pytest.fixture(scope="session")
+def postgres_container():
+    with PostgresContainer("postgres:16-alpine") as container:
+        yield container
+
+
+@pytest.fixture(scope="session")
+def database_url(postgres_container: PostgresContainer) -> str:
+    url = postgres_container.get_connection_url()
+    return url.replace("postgresql+psycopg2", "postgresql+asyncpg")
+
+
+@pytest.fixture(scope="session")
+def redis_container():
+    with RedisContainer("redis:7-alpine") as container:
+        yield container
+
+
+@pytest.fixture(scope="session")
+def redis_url(redis_container: RedisContainer) -> str:
+    host = redis_container.get_container_host_ip()
+    port = redis_container.get_exposed_port(6379)
+    return f"redis://{host}:{port}/0"
+
+
+@pytest.fixture(scope="session")
+def minio_container():
+    # MinioContainer's start() runs an HTTP healthcheck against
+    # /minio/health/live rather than string-matching startup logs — the
+    # previous hand-rolled DockerContainer + wait_for_logs(..., "1 Online")
+    # never worked at all, since "N Online, M Offline" is a multi-node
+    # erasure-coding status line that a standalone single-drive MinIO
+    # server (`server /data`) never prints, so it always ran out the full
+    # 120s wait_for_logs timeout regardless of environment.
+    with MinioContainer(access_key="minioadmin", secret_key="minioadmin") as container:
+        yield container
+
+
+@pytest.fixture(scope="session")
+def minio_endpoint_url(minio_container: MinioContainer) -> str:
+    return f"http://{minio_container.get_config()['endpoint']}"
+
+
+@pytest.fixture(scope="session")
+def _run_migrations(database_url: str) -> None:
+    backend_root = os.path.dirname(os.path.dirname(__file__))
+    alembic_cfg = Config(os.path.join(backend_root, "alembic.ini"))
+    alembic_cfg.set_main_option("sqlalchemy.url", database_url)
+    os.environ["DATABASE_URL"] = database_url
+    command.upgrade(alembic_cfg, "head")
+
+
+@pytest.fixture
+async def db_session(database_url: str, _run_migrations: None) -> AsyncSession:
+    engine = create_async_engine(database_url)
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with session_factory() as session:
+        yield session
+        await session.rollback()
+    await engine.dispose()

@@ -1,0 +1,54 @@
+.current {
+  color: var(--color-text-muted);
+}
+
+.error {
+  color: var(--color-danger);
+}
+
+.plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--spacing-4);
+  margin-top: var(--spacing-4);
+}
+
+.plan {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--spacing-6);
+}
+
+.plan h2 {
+  margin: 0 0 var(--spacing-2);
+  font-size: 16px;
+}
+
+.price {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 var(--spacing-4);
+}
+
+.plan ul {
+  padding-left: var(--spacing-4);
+  margin-bottom: var(--spacing-4);
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.plan button {
+  width: 100%;
+  padding: var(--spacing-2) var(--spacing-4);
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.plan button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

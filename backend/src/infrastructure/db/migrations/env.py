@@ -1,0 +1,76 @@
+import asyncio
+from logging.config import fileConfig
+
+from alembic import context
+from sqlalchemy import pool
+from sqlalchemy.engine import Connection
+from sqlalchemy.ext.asyncio import async_engine_from_config
+
+from src.core.config import settings
+
+# Import all models here so Base.metadata is fully populated for autogenerate.
+from src.infrastructure.db.models.admin_user import AdminUserModel  # noqa: F401
+from src.infrastructure.db.models.cart import CartModel  # noqa: F401
+from src.infrastructure.db.models.category import CategoryModel  # noqa: F401
+from src.infrastructure.db.models.customer import CustomerModel  # noqa: F401
+from src.infrastructure.db.models.master_password_usage import (  # noqa: F401
+    MasterPasswordUsageModel,
+)
+from src.infrastructure.db.models.order import OrderLineItemModel, OrderModel  # noqa: F401
+from src.infrastructure.db.models.platform_admin import PlatformAdminModel  # noqa: F401
+from src.infrastructure.db.models.product import ProductModel  # noqa: F401
+from src.infrastructure.db.models.store_settings import StoreSettingsModel  # noqa: F401
+from src.infrastructure.db.models.subscription_plan import SubscriptionPlanModel  # noqa: F401
+from src.infrastructure.db.models.tenant import TenantModel  # noqa: F401
+from src.infrastructure.db.models.tenant_subscription import TenantSubscriptionModel  # noqa: F401
+from src.infrastructure.db.models.theme import ThemeModel  # noqa: F401
+from src.infrastructure.db.models.webhook_event import ProcessedWebhookEventModel  # noqa: F401
+from src.infrastructure.db.session import Base
+
+config = context.config
+# Respect a URL the caller already configured (e.g. tests pointing this at a
+# throwaway testcontainers Postgres via alembic_cfg.set_main_option(...)
+# before calling command.upgrade()) — only fall back to the process-wide
+# Settings singleton, which is frozen at import time and would otherwise
+# silently clobber a deliberately-different URL, when nothing was set.
+if not config.get_main_option("sqlalchemy.url"):
+    config.set_main_option("sqlalchemy.url", settings.database_url)
+
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+target_metadata = Base.metadata
+
+
+def run_migrations_offline() -> None:
+    context.configure(
+        url=config.get_main_option("sqlalchemy.url"),
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def do_run_migrations(connection: Connection) -> None:
+    context.configure(connection=connection, target_metadata=target_metadata)
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+async def run_migrations_online() -> None:
+    connectable = async_engine_from_config(
+        config.get_section(config.config_ini_section, {}),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+    async with connectable.connect() as connection:
+        await connection.run_sync(do_run_migrations)
+    await connectable.dispose()
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    asyncio.run(run_migrations_online())
